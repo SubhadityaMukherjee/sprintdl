@@ -8,6 +8,7 @@
 
 ## Documentation
 - Check demo.ipynb for initial example
+- [Function documentation](https://subhadityamukherjee.github.io/sprintdl/)
 - More will be added soon along with proper documentation
 
 ## Why
