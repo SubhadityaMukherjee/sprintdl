@@ -4,6 +4,11 @@
 - Faster research and experimentation
 - Based on [fastai](https://github.com/fastai)
 - Not tooo high level and meant only for the "bit" advanced researcher
+- (This library is not stable right now. Everything works of course, but they will be changed and rearranged eventually)
+
+## Documentation
+- Check demo.ipynb for initial example
+- More will be added soon along with proper documentation
 
 ## Why
 - I loved fastai, but in many things didnt agree with the way they went. I also needed some extra features that might have not ever been approved
