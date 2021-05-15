@@ -192,7 +192,7 @@ def get_dls(train_ds, valid_ds, bs, num_workers=8, **kwargs):
 
 
 def run_with_act_vis(epochs, learn):
-    with Hooks(learn.model, append_stats) as hooks:
+    with Hooks(nn.Sequential(learn.model), append_stats) as hooks:
         learn.fit(epochs)
         fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(10, 4))
         for h in hooks:
@@ -217,7 +217,3 @@ def run_with_act_vis(epochs, learn):
             ax.set_ylim(0, 1)
         plt.tight_layout()
         plt.suptitle("Min hist activations for layers")
-
-def multiple_runner(dict_run):
-
-

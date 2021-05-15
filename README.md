@@ -4,13 +4,17 @@
 - Faster research and experimentation
 - Based on [fastai](https://github.com/fastai)
 - Not tooo high level and meant only for the "bit" advanced researcher
+- Many many convenience functions that one would need
 - (This library is not stable right now. Everything works of course, but they will be changed and rearranged eventually)
 
+# Features
+- Check features.md for a full list
+
 ## Documentation
-- Check demo.ipynb for initial example
-- There will be blogs on the topics that were required and [more here](https://www.subhadityamukherjee.me/)
+- Check the syntax folder for documentation
+- Check demos folder
 - [Function documentation](https://subhadityamukherjee.github.io/sprintdl/)
-- More will be added soon along with proper documentation
+- There will be blogs on the topics that were required and [more here](https://www.subhadityamukherjee.me/)
 
 ## Why
 - I loved fastai, but in many things didnt agree with the way they went. I also needed some extra features that might have not ever been approved

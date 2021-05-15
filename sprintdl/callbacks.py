@@ -10,16 +10,27 @@ from torch import tensor
 
 from .helpers import *
 
+"""
+This module handles all the cool features that require callbacks
+"""
+
 _camel_re1 = re.compile("(.)([A-Z][a-z]+)")
 _camel_re2 = re.compile("([a-z0-9])([A-Z])")
 
 
 def camel2snake(name):
+    """
+    Camel case -> Snake case
+    """
     s1 = re.sub(_camel_re1, r"\1_\2", name)
     return re.sub(_camel_re2, r"\1_\2", s1).lower()
 
 
 class Callback:
+    """
+    Base class
+    """
+
     _order = 0
 
     def set_runner(self, run):
@@ -41,6 +52,10 @@ class Callback:
 
 
 class TrainEvalCallback(Callback):
+    """
+    Run a train and eval loop to see if everything is okay
+    """
+
     def begin_fit(self):
         self.run.n_epochs = 0.0
         self.run.n_iter = 0
@@ -74,6 +89,10 @@ class CancelBatchException(Exception):
 
 
 class TestCallback(Callback):
+    """
+    To see if one batch works
+    """
+
     _order = 1
 
     def after_step(self):
@@ -84,6 +103,10 @@ class TestCallback(Callback):
 
 # +
 class AvgStats:
+    """
+    Store statistics of training
+    """
+
     def __init__(self, metrics, in_train):
         self.metrics, self.in_train = listify(metrics), in_train
 
@@ -113,6 +136,10 @@ class AvgStats:
 
 
 class AvgStatsCallback(Callback):
+    """
+    Main callback for stats. Used for the progress bar
+    """
+
     def __init__(self, metrics):
         self.train_stats, self.valid_stats = AvgStats(metrics, True), AvgStats(
             metrics, False
@@ -148,6 +175,10 @@ class AvgStatsCallback(Callback):
 
 # +
 class Recorder(Callback):
+    """
+    Stores some values that will enable visualization and hooks to get model state
+    """
+
     def begin_fit(self):
         self.lrs, self.losses = [0 for _ in self.opt.param_groups], []
 
@@ -171,6 +202,10 @@ class Recorder(Callback):
 
 
 class ParamScheduler(Callback):
+    """
+    Schedules parameters that were requested
+    """
+
     _order = 1
 
     def __init__(self, pname, sched_funcs):
@@ -188,6 +223,10 @@ class ParamScheduler(Callback):
 
 
 def annealer(f):
+    """
+    Base anneal class
+    """
+
     def _inner(start, end):
         return partial(f, start, end)
 
@@ -196,29 +235,49 @@ def annealer(f):
 
 @annealer
 def sched_lin(start, end, pos):
+    """
+    Linear schedule
+    """
     return start + pos * (end - start)
 
 
 @annealer
 def sched_cos(start, end, pos):
+    """
+    Cosine schedule
+    """
+
     return start + (1 + math.cos(math.pi * (1 - pos))) * (end - start) / 2
 
 
 @annealer
 def sched_no(start, end, pos):
+    """
+    No schedule
+    """
+
     return start
 
 
 @annealer
 def sched_exp(start, end, pos):
+    """
+    Exponential Scheduling
+    """
     return start * (end / start) ** pos
 
 
 def cos_1cycle_anneal(start, high, end):
+    """
+    One cycle scheduling
+    """
     return [sched_cos(start, high), sched_cos(high, end)]
 
 
 def combine_scheds(pcts, scheds):
+    """
+    Merge multiple schedulers
+    """
     assert sum(pcts) == 1.0
     pcts = tensor([0] + listify(pcts))
     assert torch.all(pcts >= 0)
@@ -235,8 +294,6 @@ def combine_scheds(pcts, scheds):
 
 
 class LR_Find(Callback):
-    _order = 1
-
     def __init__(self, max_iter=100, min_lr=1e-6, max_lr=10):
         self.max_iter, self.min_lr, self.max_lr = max_iter, min_lr, max_lr
         self.best_loss = 1e9

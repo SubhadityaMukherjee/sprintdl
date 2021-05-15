@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import *
 
 import torch
+from fastprogress.fastprogress import progress_bar
 from PIL import Image
 from torch import nn
 from torch.autograd import Variable
@@ -178,3 +179,23 @@ def get_class_pred(im_path, learn, ll, imsize=256):
     preds = int(preds.max(1, keepdim=True)[1].detach())
     lab = dict(map(reversed, ll.train.proc_y.otoi.items()))[preds]
     return lab
+
+
+def get_label_dict(ll):
+    return dict(map(reversed, ll.train.proc_y.otoi.items()))
+
+
+def classification_report(learn, n_classes, device):
+    confusion_matrix = torch.zeros(n_classes, n_classes)
+    with torch.no_grad():
+        for i, (inputs, classes) in progress_bar(
+            enumerate(learn.data.valid_dl), total=len(learn.data.valid_dl)
+        ):
+            inputs = inputs.to(device)
+            classes = classes.to(device)
+            outputs = learn.model(inputs)
+            _, preds = torch.max(outputs, 1)
+            for t, p in zip(classes.view(-1), preds.view(-1)):
+                confusion_matrix[t.long(), p.long()] += 1
+    print(confusion_matrix.diag() / confusion_matrix.sum(1))
+    print(confusion_matrix)

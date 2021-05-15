@@ -275,3 +275,24 @@ def save_model(learn, name, path="."):
     torch.save(st, mdl_path / name)
     print(f"Saved at {mdl_path/name}")
     return mdl_path / name
+
+
+def multiple_runner(dict_run, save=True, save_path=""):
+    """
+    dict run example format:
+    in order = [no of epochs , architecture, data, loss function , learning rate, callbacks, optimizer]
+        dict_runner = {
+    "xres18":[1, partial(xresnet18, c_out=n_classes)(), data, loss_func, .001, cbfs,opt_func],}
+    """
+    learn = None
+    clear_memory()
+    for i in dict_run.keys():
+        print(f"Training model: {i}")
+        val = dict_run[i]
+        #         print(len(val))
+        learn = Learner(
+            val[1], val[2], val[3], lr=val[4], cb_funcs=val[5], opt_func=val[6]
+        )
+        learn.fit(val[0])
+        if save == True:
+            save_model(learn, i, save_path)

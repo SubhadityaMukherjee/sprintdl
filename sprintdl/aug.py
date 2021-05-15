@@ -11,8 +11,16 @@ from torch.distributions import Beta
 from .callbacks import Callback
 from .helpers import lin_comb, listify, unsqueeze
 
+"""
+This module takes care of the augumentations
+"""
+
 
 class Transform:
+    """
+    Base transform class
+    """
+
     _order = 0
 
 
@@ -24,6 +32,10 @@ make_rgb._order = 0
 
 
 class ResizeFixed(Transform):
+    """
+    To a fixed size
+    """
+
     _order = 10
 
     def __init__(self, size):
@@ -39,6 +51,9 @@ class ResizeFixed(Transform):
 
 
 def to_byte_tensor(item):
+    """
+    Convert
+    """
     res = torch.ByteTensor(torch.ByteStorage.from_buffer(item.tobytes()))
     w, h = item.size
     return res.view(h, w, -1).permute(2, 0, 1)
@@ -48,6 +63,9 @@ to_byte_tensor._order = 20
 
 
 def to_float_tensor(item):
+    """
+    Convert
+    """
     return item.float().div_(255.0)
 
 
@@ -55,6 +73,9 @@ to_float_tensor._order = 30
 
 
 def normalize_chan(x, mean, std):
+    """
+    For 3 channel images (general ones)
+    """
     #  if not torch.is_tensor(x):
     #      x = to_byte_tensor(x).cuda()
     #
@@ -62,6 +83,9 @@ def normalize_chan(x, mean, std):
 
 
 def show_image(im, ax=None, figsize=(3, 3)):
+    """
+    Show single image
+    """
     if ax is None:
         _, ax = plt.subplots(1, 1, figsize=figsize)
     ax.axis("off")
@@ -69,6 +93,9 @@ def show_image(im, ax=None, figsize=(3, 3)):
 
 
 def show_batch(data, n=4, c=4, r=None, figsize=None):
+    """
+    Show a batch of n images from the train dataloader
+    """
     x = data.train_ds.x[:n]
     if r is None:
         r = int(math.ceil(n / c))
@@ -84,6 +111,10 @@ class PilTransform(Transform):
 
 
 class PilRandomFlip(PilTransform):
+    """
+    Transform
+    """
+
     def __init__(self, p=0.5):
         self.p = p
 
@@ -92,6 +123,10 @@ class PilRandomFlip(PilTransform):
 
 
 class PilRandomDihedral(PilTransform):
+    """
+    Transform
+    """
+
     def __init__(self, p=0.75):
         self.p = p * 7 / 8
 
@@ -102,6 +137,9 @@ class PilRandomDihedral(PilTransform):
 
 
 def processs_sz(sz):
+    """
+    Get size and format it to tuple
+    """
     sz = listify(sz)
     return tuple(sz if len(sz) == 2 else [sz[0], sz[0]])
 
@@ -111,6 +149,10 @@ def default_crop_size(w, h):
 
 
 class GeneralCrop(PilTransform):
+    """
+    Base class
+    """
+
     def __init__(self, size, crop_size=None, resample=PIL.Image.BILINEAR):
         self.resample, self.size = resample, processs_sz(size)
         self.crop_size = None if crop_size is None else processs_sz(crop_size)
