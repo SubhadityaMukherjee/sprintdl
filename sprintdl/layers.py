@@ -8,11 +8,19 @@ from .core import *
 
 
 class Flatten(nn.Module):
+    """
+    Flatten
+    """
+
     def forward(self, x):
         return x.view(x.size(0), -1)
 
 
 class Lambda(nn.Module):
+    """
+    Apply a function in a model
+    """
+
     def __init__(self, func):
         super().__init__()
         self.func = func
@@ -22,6 +30,10 @@ class Lambda(nn.Module):
 
 
 class Lin(Module):
+    """
+    Linear layer
+    """
+
     def __init__(self, w, b):
         self.w, self.b = w, b
 
@@ -43,6 +55,9 @@ class ReLU(Module):
 
 
 def matmul(a, b):
+    """
+    Matrix multiply using einsum
+    """
     return torch.einsum("ik, kj-> ij", a, b)
 
 
@@ -53,6 +68,10 @@ def conv2d(ni, nf, ks=3, stride=2):
 
 
 class GeneralRelu(nn.Module):
+    """
+    General with leak or clipping if required
+    """
+
     def __init__(self, leak=None, sub=None, maxv=None):
         super().__init__()
         self.leak, self.sub, self.maxv = leak, sub, maxv
@@ -67,6 +86,9 @@ class GeneralRelu(nn.Module):
 
 
 def conv_rbn(ni, nf, ks=3, stride=2, bn=True, **kwargs):
+    """
+    Conv relu running batchnorm
+    """
     layers = [
         nn.Conv2d(ni, nf, ks, padding=ks // 2, stride=stride, bias=not bn),
         GeneralRelu(**kwargs),
@@ -77,6 +99,9 @@ def conv_rbn(ni, nf, ks=3, stride=2, bn=True, **kwargs):
 
 
 def init_cnn(m):
+    """
+    Initialize a cnn with kaiming_normal_ or constant
+    """
     if getattr(m, "bias", None) is not None:
         nn.init.constant_(m.bias, 0)
     if isinstance(m, (nn.Conv2d, nn.Linear)):
@@ -144,6 +169,10 @@ class InstanceNorm(nn.Module):
 
 
 class RunningBatchNorm(nn.Module):
+    """
+    Custom running batchnorm layer
+    """
+
     def __init__(self, nf, mom=0.1, eps=1e-5):
         super().__init__()
         self.mom, self.eps = mom, eps
@@ -192,6 +221,9 @@ class RunningBatchNorm(nn.Module):
 
 
 def lsuv_module(learn, m, xb):
+    """
+    LSUV initialization
+    """
     mdl = learn.model.cuda()
     h = Hook(m, append_stat)
     while mdl(xb) is not None and abs(h.mean) > 1e-3:
@@ -211,6 +243,9 @@ def get_batch(dl, learn):
 
 
 def model_summary(learn, find_all=False, print_mod=False):
+    """
+    List layers and their sizes
+    """
     xb, yb = get_batch(learn.data.valid_dl, learn)
     mods = (
         find_modules(learn.model, is_lin_layer) if find_all else learn.model.children()
@@ -234,6 +269,9 @@ class AdaptiveConcatPool2d(nn.Module):
 
 
 def apply_mod(m, f):
+    """
+    Apply model
+    """
     f(m)
     for l in m.children():
         apply_mod(l, f)
@@ -248,6 +286,9 @@ def set_grad(m, b):
 
 
 def adapt_model(learn, data, saved_path):
+    """
+    Transfer learning
+    """
     st = torch.load(saved_path)
     m = learn.model
     m.load_state_dict(st)
@@ -268,6 +309,9 @@ def adapt_model(learn, data, saved_path):
 
 
 def save_model(learn, name, path="."):
+    """
+    Save state_dict
+    """
     st = learn.model.state_dict()
     mdl_path = path / "models"
     if not Path.exists(mdl_path):

@@ -4,19 +4,33 @@ import random
 import shutil
 import sys
 import urllib
+from functools import partial
 from pathlib import Path
 
 import PIL
 import torch
+import torchvision.datasets as d
 import wget
 
-from .core import get_dls
+from .core import Learner, get_dls
 from .helpers import *
+from .layers import save_model
 
 Path.ls = lambda x: list(x.iterdir())
 
+"""
+This part contains the defintions for everything needed to work with data
+"""
+
+
+def get_vision_datasets(fpath, name):
+    return getattr(d, name)(root=fpath, download=True)
+
 
 def untar_data(fpath):
+    """
+    Extract data using shutil
+    """
     fin_name = Path.joinpath(fpath.parent, fpath.stem)
     if not Path.exists(fin_name):
         shutil.unpack_archive(fpath, fin_name)
@@ -30,6 +44,9 @@ image_extensions = set(
 
 
 def get_name_from_url(url, name):
+    """
+    Take a url and grab the name if not specified
+    """
     if len(name) != None:
         return url.split("/")[-1]
     else:
@@ -37,6 +54,9 @@ def get_name_from_url(url, name):
 
 
 def bar_progress(current, total, width=80):
+    """
+    Custom progress bar for dataset download
+    """
     progress_message = "Downloading: %d%% [%d / %d] bytes" % (
         current / total * 100,
         current,
@@ -48,6 +68,9 @@ def bar_progress(current, total, width=80):
 
 
 def download_and_check(url, fpath=".", name=""):
+    """
+    Download and save if url or just take path
+    """
     down_path = Path.joinpath(Path(fpath), get_name_from_url(url, name))
     if any(x for x in ["www", "http"] if x in url):
         status_code = urllib.request.urlopen(url).getcode()
@@ -66,6 +89,10 @@ def download_and_check(url, fpath=".", name=""):
 
 
 class Dataset:
+    """
+    Return x,y
+    """
+
     def __init__(self, x, y):
         self.x, self.y = x, y
 
@@ -80,6 +107,10 @@ class Dataset:
 
 
 class Sampler:
+    """
+    Shuffle, randperm
+    """
+
     def __init__(self, ds, bs, shuffle=False):
         self.n, self.bs, self.shuffle = len(ds), bs, shuffle
 
@@ -90,11 +121,18 @@ class Sampler:
 
 
 def collate(b):
+    """
+    Stackers
+    """
     xs, ys = zip(*b)
     return torch.stack(xs), torch.stack(ys)
 
 
 class DataLoader:
+    """
+    Load -> sample -> collate
+    """
+
     def __init__(self, ds, sampler, collate_fn=collate):
         self.ds, self.sampler, self.collate_fn = ds, sampler, collate_fn
 
@@ -104,6 +142,10 @@ class DataLoader:
 
 
 class DataBunch:
+    """
+    Group of train,valid
+    """
+
     def __init__(self, train_dl, valid_dl, c_in=None, c_out=None):
         self.train_dl, self.valid_dl, self.c_in, self.c_out = (
             train_dl,
@@ -122,6 +164,9 @@ class DataBunch:
 
 
 def _get_files(p, fs, extensions=None):
+    """
+    Ignores dot files and returns with extensions
+    """
     p = Path(p)
     res = [
         p / f
@@ -133,6 +178,9 @@ def _get_files(p, fs, extensions=None):
 
 
 def get_files(path, extensions=None, recurse=False, include=None):
+    """
+    List files
+    """
     path = Path(path)
     extensions = setify(extensions)
     extensions = {e.lower() for e in extensions}
@@ -151,6 +199,10 @@ def get_files(path, extensions=None, recurse=False, include=None):
 
 
 class ItemList(ListContainer):
+    """
+    Item class
+    """
+
     def __init__(self, items, path=".", tfms=None):
         super().__init__(items)
         self.path, self.tfms = Path(path), tfms
@@ -177,6 +229,10 @@ class ItemList(ListContainer):
 
 
 class ImageList(ItemList):
+    """
+    Only lists images
+    """
+
     @classmethod
     def from_files(cls, path, extensions=None, recurse=True, include=None, **kwargs):
         if extensions is None:
@@ -192,6 +248,9 @@ class ImageList(ItemList):
 
 
 def grandparent_splitter(fn, valid_name="valid", train_name="train"):
+    """
+    Grab grandparent from path
+    """
     gp = fn.parent.parent.name
     return True if gp == valid_name else False if gp == train_name else None
 
@@ -223,6 +282,9 @@ class SplitData:
 
 
 def databunchify(sd, bs, c_in=None, c_out=None, **kwargs):
+    """
+    Convert to databunch
+    """
     dls = get_dls(sd.train, sd.valid, bs, **kwargs)
     return DataBunch(*dls, c_in=c_in, c_out=c_out)
 
@@ -231,11 +293,19 @@ SplitData.to_databunch = databunchify
 
 
 class Processor:
+    """
+    To apply labels
+    """
+
     def process(self, items):
         return items
 
 
 class CategoryProcessor(Processor):
+    """
+    Grab categories
+    """
+
     def __init__(self):
         self.vocab = None
 
@@ -257,10 +327,16 @@ class CategoryProcessor(Processor):
 
 
 def parent_labeler(fn):
+    """
+    Return path parent
+    """
     return fn.parent.name
 
 
 def _label_by_func(ds, f, cls=ItemList):
+    """
+    Label using a custom fnction
+    """
     return cls([f(o) for o in ds.items], path=ds.path)
 
 
@@ -308,4 +384,27 @@ def label_by_func(sd, f, proc_x=None, proc_y=None):
 
 
 def random_splitter(fn, p_valid):
+    """
+    Randomly split
+    """
     return random.random() < p_valid
+
+
+#  def progressive_resize(progressive_list, fpath, epochs, bs,tfms, arch, lr, cbfs, opt_func, loss_func, model_name = "m"):
+#
+#      for i in progressive_list:
+#          il = ImageList.from_files(fpath, tfms=tfms)
+#
+#          sd = SplitData.split_by_func(il, partial(random_splitter, p_valid = .2))
+#          ll = label_by_func(sd, lambda x: str(x).split("/")[-3], proc_y=CategoryProcessor())
+#
+#          data = ll.to_databunch(bs, c_in=3, c_out=2)
+#
+#          clear_memory()
+#
+#  # learn = get_learner(nfs, data, lr, conv_layer, cb_funcs=cbfs)
+#          learn = Learner(arch,  data, loss_func, lr=lr, cb_funcs=cbfs, opt_func=opt_func)
+#
+#          learn.fit(epochs)
+#
+#          save_model(learn, f"{model_name}_{i}", fpath)

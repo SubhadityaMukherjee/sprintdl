@@ -6,8 +6,16 @@ from .callbacks import *
 from .helpers import *
 from .optimizers import *
 
+"""
+This part has the major training loops and model definations
+"""
+
 
 class Module:
+    """
+    Base class
+    """
+
     def __call__(self, *args):
         self.args = args
         self.out = self.forward(*args)
@@ -21,6 +29,10 @@ class Module:
 
 
 class DummySequential:
+    """
+    Sequential model non pytorch
+    """
+
     def __init__(self, n_in, nh, n_out):
         self._modules = {}
         self.l1 = nn.Linear(n_in, nh)
@@ -41,6 +53,10 @@ class DummySequential:
 
 
 class SequentialModel(nn.Module):
+    """
+    Main sequential
+    """
+
     def __init__(self, layers):
         super().__init__()
         self.layers = nn.ModuleList(layers)
@@ -51,12 +67,15 @@ class SequentialModel(nn.Module):
         return x
 
 
-# export
 def param_getter(m):
     return m.parameters()
 
 
 class Learner:
+    """
+    Main learner class which takes model, trains etc
+    """
+
     def __init__(
         self,
         model,
@@ -181,6 +200,9 @@ class Learner:
 
 
 def get_dls(train_ds, valid_ds, bs, num_workers=8, **kwargs):
+    """
+    Return dataloaders
+    """
     return (
         torch.utils.data.DataLoader(
             train_ds, batch_size=bs, shuffle=True, num_workers=num_workers, **kwargs
@@ -192,6 +214,9 @@ def get_dls(train_ds, valid_ds, bs, num_workers=8, **kwargs):
 
 
 def run_with_act_vis(epochs, learn):
+    """
+    Run learner fit while storing model visualization such as histogram of activations
+    """
     with Hooks(nn.Sequential(learn.model), append_stats) as hooks:
         learn.fit(epochs)
         fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(10, 4))

@@ -10,6 +10,23 @@ from torch import tensor
 
 from .helpers import *
 
+
+def normalize_chan(x, mean, std):
+    """
+    For 3 channel images (general ones)
+    """
+    return (x - mean[..., None, None]) / std[..., None, None]
+
+
+_m = tensor([0.47, 0.48, 0.45])
+_s = tensor([0.29, 0.28, 0.30])
+norm_imagenette = partial(normalize_chan, mean=_m.cuda(), std=_s.cuda())
+
+
+def accuracy(out, yb):
+    return (torch.argmax(out, dim=1) == yb).float().mean()
+
+
 """
 This module handles all the cool features that require callbacks
 """
@@ -294,6 +311,10 @@ def combine_scheds(pcts, scheds):
 
 
 class LR_Find(Callback):
+    """
+    Find Learning rate. (WIP)
+    """
+
     def __init__(self, max_iter=100, min_lr=1e-6, max_lr=10):
         self.max_iter, self.min_lr, self.max_lr = max_iter, min_lr, max_lr
         self.best_loss = 1e9
@@ -314,6 +335,10 @@ class LR_Find(Callback):
 
 
 class CudaCallback(Callback):
+    """
+    Push to cuda
+    """
+
     def __init__(self, device):
         self.device = device
 
@@ -325,6 +350,10 @@ class CudaCallback(Callback):
 
 
 class BatchTransformXCallback(Callback):
+    """
+    Perform batch transforms
+    """
+
     _order = 2
 
     def __init__(self, tfm):
@@ -335,6 +364,10 @@ class BatchTransformXCallback(Callback):
 
 
 def view_tfm(*size):
+    """
+    Grab transforms
+    """
+
     def _inner(x):
         return x.view(*((-1,) + size))
 
@@ -342,10 +375,17 @@ def view_tfm(*size):
 
 
 def children(m):
+    """
+    Model children
+    """
     return list(m.children())
 
 
 class Hook:
+    """
+    More base
+    """
+
     def __init__(self, m, f):
         self.hook = m.register_forward_hook(partial(f, self))
 
@@ -357,6 +397,9 @@ class Hook:
 
 
 def append_stats(hook, mod, inp, outp):
+    """
+    Grab stats
+    """
     if not hasattr(hook, "stats"):
         hook.stats = ([], [], [])
     means, stds, hists = hook.stats
@@ -366,6 +409,10 @@ def append_stats(hook, mod, inp, outp):
 
 
 class Hooks(ListContainer):
+    """
+    Base class
+    """
+
     def __init__(self, ms, f):
         super().__init__([Hook(m, f) for m in ms])
 
@@ -388,6 +435,10 @@ class Hooks(ListContainer):
 
 
 class ProgressCallback(Callback):
+    """
+    Pretty progress bar using fastprogress
+    """
+
     _order = -1
 
     def begin_fit(self):
@@ -413,12 +464,32 @@ class ProgressCallback(Callback):
 
 
 def create_phases(phases):
+    """
+    For one cycle
+    """
     phases = listify(phases)
     return phases + [1 - sum(phases)]
 
 
 def sched_1cycle(lr, pct_start=0.3, mom_start=0.95, mom_mid=0.85, mom_end=0.95):
+    """
+    One cycle scheduling
+    """
     phases = create_phases(pct_start)
     sched_lr = combine_scheds(phases, cos_1cycle_anneal(lr / 10.0, lr, lr / 1e5))
     sched_mom = combine_scheds(phases, cos_1cycle_anneal(mom_start, mom_mid, mom_end))
     return [ParamScheduler("lr", sched_lr), ParamScheduler("mom", sched_mom)]
+
+
+def lr_finder(learn, n_epochs):
+    """
+    Get suggested_lr and return
+    """
+    learn.cbs.append(LR_Find)
+    learn.fit(n_epochs)
+    suggested_lr = learn.opt.hypers[0]["lr"]
+    print(f"Best loss : {learn.lr__find.best_loss}\nSuggested lr : {suggested_lr}")
+    learn.cbs.remove(LR_Find)
+    learn.lr = suggested_lr
+    print(f"Set lr to suggested_lr")
+    return suggested_lr

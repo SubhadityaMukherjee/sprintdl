@@ -11,6 +11,7 @@
 - Check features.md for a full list
 
 ## Documentation
+- Okay so writing examples will take forever, so please check function documentation and the demos folder for most of what you need
 - Check the syntax folder for documentation
 - Check demos folder
 - [Function documentation](https://subhadityamukherjee.github.io/sprintdl/)
