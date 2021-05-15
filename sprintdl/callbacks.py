@@ -214,8 +214,7 @@ def sched_exp(start, end, pos):
     return start * (end / start) ** pos
 
 
-@annealer
-def cos_1cycle_anneal(start, high, end):  # TODO
+def cos_1cycle_anneal(start, high, end):
     return [sched_cos(start, high), sched_cos(high, end)]
 
 
@@ -331,18 +330,6 @@ class Hooks(ListContainer):
             h.remove()
 
 
-def model_summary(learn, data, find_all=False):  # TODO
-    xb, yb = get_batch(data.valid_dl)
-    device = next(learn.model.parameters()).device  # Model may not be on the GPU yet
-    xb, yb = xb.to(device), yb.to(device)
-    mods = (
-        find_modules(learn.model, is_lin_layer) if find_all else learn.model.children()
-    )
-    f = lambda hook, mod, inp, out: print(f"{mod}\n{out.shape}\n")
-    with Hooks(mods, f) as hooks:
-        learn.model(xb)
-
-
 class ProgressCallback(Callback):
     _order = -1
 
@@ -366,3 +353,15 @@ class ProgressCallback(Callback):
     def set_pb(self):
         self.pb = progress_bar(self.dl, parent=self.mbar)
         self.mbar.update(self.epoch)
+
+
+def create_phases(phases):
+    phases = listify(phases)
+    return phases + [1 - sum(phases)]
+
+
+def sched_1cycle(lr, pct_start=0.3, mom_start=0.95, mom_mid=0.85, mom_end=0.95):
+    phases = create_phases(pct_start)
+    sched_lr = combine_scheds(phases, cos_1cycle_anneal(lr / 10.0, lr, lr / 1e5))
+    sched_mom = combine_scheds(phases, cos_1cycle_anneal(mom_start, mom_mid, mom_end))
+    return [ParamScheduler("lr", sched_lr), ParamScheduler("mom", sched_mom)]

@@ -217,3 +217,7 @@ def run_with_act_vis(epochs, learn):
             ax.set_ylim(0, 1)
         plt.tight_layout()
         plt.suptitle("Min hist activations for layers")
+
+def multiple_runner(dict_run):
+
+

@@ -1,10 +1,12 @@
-import gzip
-import pickle
 from collections import OrderedDict
+from pathlib import Path
 from typing import *
 
 import torch
-from torch import nn, tensor
+from PIL import Image
+from torch import nn
+from torch.autograd import Variable
+from torchvision import transforms
 
 
 def normalize(x, m, s):
@@ -100,25 +102,6 @@ def append_stat(hook, mod, inp, outp):
     hook.mean, hook.std = d.mean().item(), d.std().item()
 
 
-def get_mnist(path):
-    with gzip.open(path, "rb") as f:
-        ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
-
-    x_train, y_train, x_valid, y_valid = map(
-        tensor, (x_train, y_train, x_valid, y_valid)
-    )
-    return x_train, y_train, x_valid, y_valid
-
-
-def untar_data(path):  # TODO : get and untar data from URL or path. Return path
-    with gzip.open(path, "rb") as f:
-        ((x_train, y_train), (x_valid, y_valid), _)
-    x_train, y_train, x_valid, y_valid = map(
-        tensor, (x_train, y_train, x_valid, y_valid)
-    )
-    return x_train, y_train, x_valid, y_valid
-
-
 def setify(i):
     return i if isinstance(i, set) else set(listify(i))
 
@@ -166,3 +149,32 @@ def lin_comb(v1, v2, beta):
 
 def param_getter(m):
     return m.parameters()
+
+
+def unsqueeze(input, dims):
+    for dim in listify(dims):
+        input = torch.unsqueeze(input, dim)
+        return input
+
+
+def clear_memory():
+    torch.cuda.empty_cache()
+
+
+def image_loader(image_name, imsize=256):
+    """load image, returns cuda tensor"""
+    image = Image.open(image_name).convert("RGB")
+    loader = transforms.Compose([transforms.Scale(imsize), transforms.ToTensor()])
+    image = loader(image).float()
+    image = Variable(image, requires_grad=True)
+    image = image.unsqueeze(0)
+    return image.cuda()
+
+
+def get_class_pred(im_path, learn, ll, imsize=256):
+    temp = Path(im_path)
+    learn.model.eval()
+    preds = learn.model(image_loader(temp, imsize))
+    preds = int(preds.max(1, keepdim=True)[1].detach())
+    lab = dict(map(reversed, ll.train.proc_y.otoi.items()))[preds]
+    return lab

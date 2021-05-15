@@ -1,8 +1,15 @@
+from pathlib import Path
+
 import torch
 from torch import nn
 from torch.nn import init
 
 from .core import *
+
+
+class Flatten(nn.Module):
+    def forward(self, x):
+        return x.view(x.size(0), -1)
 
 
 class Lambda(nn.Module):
@@ -59,12 +66,6 @@ class GeneralRelu(nn.Module):
         return x
 
 
-def conv_layer(ni, nf, ks=3, stride=2, **kwargs):
-    return nn.Sequential(
-        nn.Conv2d(ni, nf, ks, padding=ks // 2, stride=stride), GeneralRelu(**kwargs)
-    )
-
-
 def conv_rbn(ni, nf, ks=3, stride=2, bn=True, **kwargs):
     layers = [
         nn.Conv2d(ni, nf, ks, padding=ks // 2, stride=stride, bias=not bn),
@@ -75,18 +76,13 @@ def conv_rbn(ni, nf, ks=3, stride=2, bn=True, **kwargs):
     return nn.Sequential(*layers)
 
 
-def init_cnn_(m, f):
-    if isinstance(m, nn.Conv2d):
-        f(m.weight, a=0.1)
-        if getattr(m, "bias", None) is not None:
-            m.bias.data.zero_()
+def init_cnn(m):
+    if getattr(m, "bias", None) is not None:
+        nn.init.constant_(m.bias, 0)
+    if isinstance(m, (nn.Conv2d, nn.Linear)):
+        nn.init.kaiming_normal_(m.weight)
     for l in m.children():
-        init_cnn_(l, f)
-
-
-def init_cnn(m, uniform=False):
-    f = init.kaiming_uniform_ if uniform else init.kaiming_normal_
-    init_cnn_(m, f)
+        init_cnn(l)
 
 
 class BatchNorm(nn.Module):
@@ -204,3 +200,78 @@ def lsuv_module(learn, m, xb):
         m.weight.data /= h.std
     h.remove()
     return h.mean, h.std
+
+
+def get_batch(dl, learn):
+    learn.xb, learn.yb = next(iter(dl))
+    learn.do_begin_fit(1)
+    learn("begin_batch")
+    learn("after_fit")
+    return learn.xb, learn.yb
+
+
+def model_summary(learn, find_all=False, print_mod=False):
+    xb, yb = get_batch(learn.data.valid_dl, learn)
+    mods = (
+        find_modules(learn.model, is_lin_layer) if find_all else learn.model.children()
+    )
+    f = lambda hook, mod, inp, out: print(
+        f"====\n{mod}\n" if print_mod else "", out.shape
+    )
+    with Hooks(mods, f) as hooks:
+        learn.model(xb)
+
+
+class AdaptiveConcatPool2d(nn.Module):
+    def __init__(self, sz=1):
+        super().__init__()
+        self.output_size = sz
+        self.ap = nn.AdaptiveAvgPool2d(sz)
+        self.mp = nn.AdaptiveMaxPool2d(sz)
+
+    def forward(self, x):
+        return torch.cat([self.mp(x), self.ap(x)], 1)
+
+
+def apply_mod(m, f):
+    f(m)
+    for l in m.children():
+        apply_mod(l, f)
+
+
+def set_grad(m, b):
+    if isinstance(m, (nn.Linear, nn.BatchNorm2d)):
+        return
+    if hasattr(m, "weight"):
+        for p in m.parameters():
+            p.requires_grad_(b)
+
+
+def adapt_model(learn, data, saved_path):
+    st = torch.load(saved_path)
+    m = learn.model
+    m.load_state_dict(st)
+    cut = next(
+        i
+        for i, o in enumerate(learn.model.children())
+        if isinstance(o, nn.AdaptiveAvgPool2d)
+    )
+    m_cut = learn.model[:cut]
+    xb, yb = get_batch(data.valid_dl, learn)
+    pred = m_cut(xb)
+    ni = pred.shape[1]
+    m_new = nn.Sequential(
+        m_cut, AdaptiveConcatPool2d(), Flatten(), nn.Linear(ni * 2, data.c_out)
+    )
+    learn.model = m_new
+    learn.model.apply(partial(set_grad, b=False))  # apply_mod
+
+
+def save_model(learn, name, path="."):
+    st = learn.model.state_dict()
+    mdl_path = path / "models"
+    if not Path.exists(mdl_path):
+        mdl_path.mkdir()
+    torch.save(st, mdl_path / name)
+    print(f"Saved at {mdl_path/name}")
+    return mdl_path / name

@@ -1,18 +1,68 @@
 import mimetypes
 import os
+import random
+import shutil
+import sys
+import urllib
 from pathlib import Path
 
 import PIL
 import torch
+import wget
 
 from .core import get_dls
 from .helpers import *
 
 Path.ls = lambda x: list(x.iterdir())
 
+
+def untar_data(fpath):
+    fin_name = Path.joinpath(fpath.parent, fpath.stem)
+    if not Path.exists(fin_name):
+        shutil.unpack_archive(fpath, fin_name)
+    print(f"Extracted to {fin_name}")
+    return fin_name
+
+
 image_extensions = set(
     k for k, v in mimetypes.types_map.items() if v.startswith("image/")
 )
+
+
+def get_name_from_url(url, name):
+    if len(name) != None:
+        return url.split("/")[-1]
+    else:
+        return name
+
+
+def bar_progress(current, total, width=80):
+    progress_message = "Downloading: %d%% [%d / %d] bytes" % (
+        current / total * 100,
+        current,
+        total,
+    )
+    # Don't use print() as it will print in new line every time.
+    sys.stdout.write("\r" + progress_message)
+    sys.stdout.flush()
+
+
+def download_and_check(url, fpath=".", name=""):
+    down_path = Path.joinpath(Path(fpath), get_name_from_url(url, name))
+    if any(x for x in ["www", "http"] if x in url):
+        status_code = urllib.request.urlopen(url).getcode()
+        if status_code != 200:
+            print("Sorry, invalid url")
+        else:
+            if not Path.exists(down_path):
+                wget.download(url, str(down_path), bar=bar_progress)
+                print(f"Downloaded to {down_path}")
+            else:
+                print(f"Already downloaded at {down_path}")
+    else:
+        if not Path.exists(down_path):
+            return "Invalid path"
+    return down_path
 
 
 class Dataset:
@@ -255,3 +305,7 @@ def label_by_func(sd, f, proc_x=None, proc_y=None):
     train = LabeledData.label_by_func(sd.train, f, proc_x=proc_x, proc_y=proc_y)
     valid = LabeledData.label_by_func(sd.valid, f, proc_x=proc_x, proc_y=proc_y)
     return SplitData(train, valid)
+
+
+def random_splitter(fn, p_valid):
+    return random.random() < p_valid

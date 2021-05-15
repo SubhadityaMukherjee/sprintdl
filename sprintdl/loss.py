@@ -1,5 +1,7 @@
 import torch
+from torch import nn
 
+from .aug import reduce_loss
 from .core import *
 
 
@@ -26,3 +28,16 @@ def log_softmax(x):
 
 def accuracy(out, yb):
     return (torch.argmax(out, dim=1) == yb).float().mean()
+
+
+class LabelSmoothingCrossEntropy(nn.Module):
+    def __init__(self, ε: float = 0.1, reduction="mean"):
+        super().__init__()
+        self.ε, self.reduction = ε, reduction
+
+    def forward(self, output, target):
+        c = output.size()[-1]
+        log_preds = F.log_softmax(output, dim=-1)
+        loss = reduce_loss(-log_preds.sum(dim=-1), self.reduction)
+        nll = F.nll_loss(log_preds, target, reduction=self.reduction)
+        return lin_comb(loss / c, nll, self.ε)

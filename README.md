@@ -8,6 +8,7 @@
 
 ## Documentation
 - Check demo.ipynb for initial example
+- There will be blogs on the topics that were required and [more here](https://www.subhadityamukherjee.me/)
 - [Function documentation](https://subhadityamukherjee.github.io/sprintdl/)
 - More will be added soon along with proper documentation
 
