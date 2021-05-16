@@ -14,9 +14,29 @@
 
 - documentation
 
-## Dreams
+## Ideas
 
 - Sharded
 - fp16 using native pytorch
 - easier progressive resizing
 - tensorboard
+- Loss functions
+- GradCAM
+- GANs
+
+## Data
+- Multi Category
+- Regression
+- mask splitter
+- column splitter
+- one hot encode
+- Point data
+- Segmentation data
+- bounding box data
+- verify images
+- Image Sorter
+
+## More
+- Medical Imaging
+- Audio
+- NLP

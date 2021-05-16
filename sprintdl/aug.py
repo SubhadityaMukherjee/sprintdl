@@ -217,7 +217,7 @@ def reduce_loss(loss, reduction="mean"):
     )
 
 
-class MixUp(Callback):  # TODO
+class MixUp(Callback):
     _order = 90
 
     def __init__(self, α: float = 0.4):
