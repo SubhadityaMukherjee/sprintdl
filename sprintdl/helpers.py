@@ -5,6 +5,7 @@ from typing import *
 import torch
 from fastprogress.fastprogress import progress_bar
 from PIL import Image
+from prettytable import PrettyTable
 from torch import nn
 from torch.autograd import Variable
 from torchvision import transforms

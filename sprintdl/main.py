@@ -9,6 +9,7 @@ from .data import *
 from .helpers import *
 from .layers import *
 from .loss import *
+from .models import *
 from .optimizers import *
 from .tests import *
 

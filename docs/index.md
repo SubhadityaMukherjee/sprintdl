@@ -58,7 +58,7 @@
 <dd>
 <div class="desc"></div>
 </dd>
-<dt><code class="name"><a title="sprintdl.nets" href="nets.html">sprintdl.nets</a></code></dt>
+<dt><code class="name"><a title="sprintdl.models" href="models/index.html">sprintdl.models</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -95,7 +95,7 @@
 <li><code><a title="sprintdl.layers" href="layers.html">sprintdl.layers</a></code></li>
 <li><code><a title="sprintdl.loss" href="loss.html">sprintdl.loss</a></code></li>
 <li><code><a title="sprintdl.main" href="main.html">sprintdl.main</a></code></li>
-<li><code><a title="sprintdl.nets" href="nets.html">sprintdl.nets</a></code></li>
+<li><code><a title="sprintdl.models" href="models/index.html">sprintdl.models</a></code></li>
 <li><code><a title="sprintdl.optimizers" href="optimizers.html">sprintdl.optimizers</a></code></li>
 <li><code><a title="sprintdl.tests" href="tests.html">sprintdl.tests</a></code></li>
 </ul>

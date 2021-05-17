@@ -25,7 +25,7 @@ sys.path.append("../")
 # -
 
 from sprintdl.main import *
-# from sprintdl.nets import *
+import sprintdl
 
 device = torch.device('cuda',0)
 from torch.nn import init
@@ -49,8 +49,6 @@ il
 
 tm= Path("/media/hdd/Datasets/ArtClass/Unpopular/mimang.art/69030963_140928767119437_3621699865915593113_n.jpg")
 
-str(tm).split("/")[-3]
-
 sd = SplitData.split_by_func(il, partial(random_splitter, p_valid = .2))
 ll = label_by_func(sd, lambda x: str(x).split("/")[-3], proc_y=CategoryProcessor())
 
@@ -59,6 +57,12 @@ n_classes = len(set(ll.train.y.items))
 data = ll.to_databunch(bs, c_in=3, c_out=2)
 
 show_batch(data, 4)
+
+# # Darknet
+
+dark = sprintdl.models.darknet.Darknet([1, 2, 4, 6, 3], num_classes=n_classes, nf=32)
+
+# # Training
 
 # +
 lr = .001
@@ -78,20 +82,12 @@ cbfs = [
        partial(CudaCallback, device)]
 
 loss_func=LabelSmoothingCrossEntropy()
-# arch = partial(xresnet34, n_classes)
-arch = get_vision_model("resnet34", n_classes=n_classes, pretrained=True)
-
-# opt_func = partial(sgd_mom_opt, wd=0.01)
 opt_func = adam_opt(mom=0.9, mom_sqr=0.99, eps=1e-6, wd=1e-2)
-# opt_func = lamb
 # -
-
-# # Training
 
 clear_memory()
 
-# learn = get_learner(nfs, data, lr, conv_layer, cb_funcs=cbfs)
-learn = Learner(arch,  data, loss_func, lr=lr, cb_funcs=cbfs, opt_func=opt_func)
+learn = Learner(dark,  data, loss_func, lr=lr, cb_funcs=cbfs, opt_func=opt_func)
 
 # +
 # model_summary(learn, data)
@@ -101,25 +97,13 @@ learn.fit(1)
 
 save_model(learn, "m1", fpath)
 
-# +
-temp = Path('/media/hdd/Datasets/ArtClass/Popular/artgerm/10004370_1657536534486515_1883801324_n.jpg')
-
-get_class_pred(temp, learn ,ll, 128)
-# -
-
-temp = Path('/home/eragon/Downloads/Telegram Desktop/IMG_1800.PNG')
-
-get_class_pred(temp, learn ,ll,128)
-
 temp = Path('/home/eragon/Downloads/Telegram Desktop/IMG_20210106_180731.jpg')
 
 get_class_pred(temp, learn ,ll,128)
 
 # # Digging in
 
-# +
-# classification_report(learn, n_classes, device)
-# -
+classification_report(learn, n_classes, device)
 
 learn.recorder.plot_lr()
 
@@ -128,18 +112,6 @@ learn.recorder.plot_loss()
 # # Model vis
 
 run_with_act_vis(1, learn)
-
-# # Multiple runs with model saving
-
-dict_runner = {
-    "xres18":[1, partial(xresnet18, c_out=n_classes)(), data, loss_func, .001, cbfs,opt_func],
-    "xres34":[1, partial(xresnet34, c_out=n_classes)(), data, loss_func, .001, cbfs,opt_func],
-    "xres50":[1, partial(xresnet50, c_out=n_classes)(), data, loss_func, .001, cbfs,opt_func],
-}
-
-learn = Learner(arch(), data, loss_func, lr=lr, cb_funcs=cbfs, opt_func=opt_func)
-
-multiple_runner(dict_runner, fpath)
 
 
 

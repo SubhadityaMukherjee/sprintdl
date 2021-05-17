@@ -25,7 +25,7 @@ sys.path.append("../")
 # -
 
 from sprintdl.main import *
-from sprintdl.nets import *
+# from sprintdl.nets import *
 
 device = torch.device('cuda',0)
 from torch.nn import init

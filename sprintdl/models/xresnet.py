@@ -1,20 +1,8 @@
-import torchvision.models as m
 from torch import nn
 
-from .layers import *
+from ..layers import *
 
 act_fn = nn.ReLU(inplace=True)
-
-
-def get_vision_model(name, n_classes, pretrained=False):
-    try:
-        return getattr(m, name)(num_classes=n_classes, pretrained=pretrained)
-    except:
-        return getattr(m, name)(num_classes=n_classes)
-
-
-def noop(x):
-    return x
 
 
 def conv(ni, nf, ks=3, stride=1, bias=False):

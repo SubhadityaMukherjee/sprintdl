@@ -9,6 +9,11 @@
 - wrapper around pytorch datasets
 - adamW
 - update features
+- more metrics support
+- albumentations
+- show batch shows random images
+- auto reduce batch size in multiple trainer
+- csv data
 
 ## Doing
 
@@ -25,6 +30,7 @@
 - GANs
 
 ## Data
+
 - Multi Category
 - Regression
 - mask splitter
@@ -37,6 +43,7 @@
 - Image Sorter
 
 ## More
+
 - Medical Imaging
 - Audio
 - NLP

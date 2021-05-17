@@ -242,3 +242,20 @@ def run_with_act_vis(epochs, learn):
             ax.set_ylim(0, 1)
         plt.tight_layout()
         plt.suptitle("Min hist activations for layers")
+
+
+def count_parameters(learn, table=False):
+    if isinstance(learn, Learner) == True:
+        learn = learn.model
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+    for name, parameter in learn.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        param = parameter.numel()
+        table.add_row([name, param])
+        total_params += param
+    if table == True:
+        print(table)
+    print(f"Total Trainable Params: {total_params}")
+    return total_params

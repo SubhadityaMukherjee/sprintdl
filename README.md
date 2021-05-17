@@ -22,6 +22,9 @@
 - I wanted to learn DL even better. Thanks to the fastai course, I could do that. What better way to learn than make a whole library?
 - On my way to be a better researcher, I have to take apart the things I take for granted. So, heres the cure for it.
 
+## Reqs
+- pip install -r requirements.txt
+
 ## Thank you
 - A huge huge huge huge thank you to [Jeremy Howard](https://scholar.google.com/scholar?q=jeremy%20howard), [Rachel Thomas](https://scholar.google.com/scholar?hl=en&as_sdt=0%2C5&q=rachel+thomas&btnG=&oq=rachel+th), [Sylvian Gugger](https://scholar.google.com/scholar?hl=en&as_sdt=0%2C5&q=S+gugger&btnG=) and the whole fastai team for just being absolutely amazing and helpful
 
