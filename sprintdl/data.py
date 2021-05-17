@@ -1,12 +1,14 @@
 import mimetypes
 import os
 import random
+import re
 import shutil
 import sys
 import urllib
 from functools import partial
 from pathlib import Path
 
+import pandas as pd
 import PIL
 import torch
 import torchvision.datasets as d
@@ -41,6 +43,10 @@ def untar_data(fpath):
 image_extensions = set(
     k for k, v in mimetypes.types_map.items() if v.startswith("image/")
 )
+
+AUDIO_EXTS = {
+    str.lower(k) for k, v in mimetypes.types_map.items() if v.startswith("audio/")
+}
 
 
 def get_name_from_url(url, name):
@@ -326,6 +332,27 @@ class CategoryProcessor(Processor):
         return self.vocab[idx]
 
 
+def TableLoader(
+    fname,
+    path_col,
+    target_col,
+    add_before="",
+    add_after="",
+    file_type="csv",
+    custom_read=None,
+):
+    if custom_read != None:
+        df = custom_read
+    else:
+        df = getattr(pd, f"read_{file_type}")(fname)
+    if len(add_before) > 1:
+        df[path_col] = df[path_col].apply(lambda x: add_before + x)
+    if len(add_after) > 1:
+        df[path_col] = df[path_col].apply(lambda x: x + add_after)
+    df[path_col] = df[path_col].apply(lambda x: Path(x))
+    return dict(zip(df[path_col].values, df[target_col].values))
+
+
 def parent_labeler(fn):
     """
     Return path parent
@@ -333,11 +360,22 @@ def parent_labeler(fn):
     return fn.parent.name
 
 
+def table_labeler(fn, dic):
+    """
+    Return label from dict
+    """
+    return dic[fn]
+
+
 def _label_by_func(ds, f, cls=ItemList):
     """
     Label using a custom fnction
     """
     return cls([f(o) for o in ds.items], path=ds.path)
+
+
+def re_labeler(fn, pat):
+    return re.findall(pat, str(fn))[0]
 
 
 class LabeledData:

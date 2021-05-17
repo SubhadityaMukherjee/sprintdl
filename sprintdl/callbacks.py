@@ -10,6 +10,8 @@ from torch import tensor
 
 from .helpers import *
 
+scaler = torch.cuda.amp.GradScaler()
+
 
 def normalize_chan(x, mean, std):
     """
@@ -347,6 +349,31 @@ class CudaCallback(Callback):
 
     def begin_batch(self):
         self.run.xb, self.run.yb = self.xb.to(self.device), self.yb.to(self.device)
+
+
+class FP16(Callback):  # TODO
+    """
+    FP16
+    """
+
+    def __init__(self, device):
+        self.device = device
+
+    def begin_fit(self):
+        with torch.cuda.amp.autocast():
+            self.model.to(self.device)
+
+    def begin_batch(self):
+        self.run.xb, self.run.yb = self.xb.to(self.device), self.yb.to(self.device)
+
+    def fpstep(self, opt):
+        for p, hyper in opt.grad_params():
+            scaler.step(p)
+
+    def after_fit(self):
+        scaler.scale(self.loss)
+        self.fpstep(self.opt)
+        scaler.update()
 
 
 class BatchTransformXCallback(Callback):

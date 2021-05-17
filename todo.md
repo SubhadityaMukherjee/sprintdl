@@ -13,7 +13,6 @@
 - albumentations
 - show batch shows random images
 - auto reduce batch size in multiple trainer
-- csv data
 
 ## Doing
 

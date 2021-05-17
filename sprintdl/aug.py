@@ -2,9 +2,12 @@ import math
 import random
 from functools import partial
 
+import albumentations as A
 import matplotlib.pyplot as plt
+import numpy as np
 import PIL
 import torch
+from albumentations.pytorch import ToTensorV2
 from torch import tensor
 from torch.distributions import Beta
 
@@ -29,6 +32,25 @@ def make_rgb(item):
 
 
 make_rgb._order = 0
+
+
+def pathToTensor(im):
+    return np.array(PIL.Image.open(im))
+
+
+class ATransform:
+    def __init__(self, t_list, c_in=3):
+        self.t_list = t_list
+        if c_in == 3:
+            self.t_list.append(
+                A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+            )
+        else:
+            self.t_list.append(A.Normalize(mean=(0.1307,), std=(0.3081,)))
+        self.t_list.append(ToTensorV2())
+
+    def __call__(self, item):
+        return self.t_list(image=np.array(item))["image"]
 
 
 class ResizeFixed(Transform):
