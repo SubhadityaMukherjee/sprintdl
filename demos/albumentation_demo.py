@@ -34,23 +34,17 @@ import math
 
 from sprintdl.models.xresnet import *
 
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-
 # # Define required
 
 # +
 fpath = Path("/media/hdd/Datasets/ArtClass/")
 
-train_transform = A.Compose(
-    [
-        A.SmallestMaxSize(max_size=160),
+train_transform = [A.SmallestMaxSize(max_size=160),
         A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, rotate_limit=15, p=0.5),
         A.RandomCrop(height=128, width=128),
         A.RGBShift(r_shift_limit=15, g_shift_limit=15, b_shift_limit=15, p=0.5),
         A.RandomBrightnessContrast(p=0.5),
     ]
-)
 
 tfms = [ATransform(train_transform, c_in = 3)]
 bs = 256

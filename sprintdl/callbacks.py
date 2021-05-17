@@ -7,10 +7,12 @@ import matplotlib.pyplot as plt
 import torch
 from fastprogress.fastprogress import format_time, master_bar, progress_bar
 from torch import tensor
+from torch.utils.tensorboard import SummaryWriter
 
 from .helpers import *
 
 scaler = torch.cuda.amp.GradScaler()
+writer = SummaryWriter()
 
 
 def normalize_chan(x, mean, std):
@@ -190,6 +192,43 @@ class AvgStatsCallback(Callback):
             stats += [f"{v:.6f}" for v in o.avg_stats]
         stats += [format_time(time.time() - self.start_time)]
         self.logger(stats)
+
+
+class TensorboardCallback(Callback):
+    """
+    Main callback for tensorboard.
+    """
+
+    def __init__(self, metrics):
+        self.train_stats, self.valid_stats = AvgStats(metrics, True), AvgStats(
+            metrics, False
+        )
+
+    def begin_epoch(self):
+        self.train_stats.reset()
+        self.valid_stats.reset()
+        self.start_time = time.time()
+
+    def after_loss(self):
+        stats = self.train_stats if self.in_train else self.valid_stats
+        with torch.no_grad():
+            stats.accumulate(self.run)
+
+    def time_seconds(self, x):
+        return sum([a * b for a, b in zip([3600, 60, 1], map(int, x.split(":")))])
+
+    def after_epoch(self):
+        stats = [str(self.epoch)]
+        for o in [self.train_stats, self.valid_stats]:
+            stats += [f"{v:.6f}" for v in o.avg_stats]
+        stats += [format_time(time.time() - self.start_time)]
+        writer.add_scalar("Loss/train", float(stats[1]), int(self.epoch))
+        writer.add_scalar("Accuracy/train", float(stats[2]), int(self.epoch))
+        writer.add_scalar("Loss/valid", float(stats[3]), int(self.epoch))
+        writer.add_scalar("Accuracy/train", float(stats[4]), int(self.epoch))
+        writer.add_scalar(
+            "Time/epoch", float(self.time_seconds(str(stats[5]))), int(self.epoch)
+        )
 
 
 # +

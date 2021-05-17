@@ -196,15 +196,20 @@ label_pat = r'/([mf]\d+)_'
 ll = label_by_func(sd, partial(re_labeler, pat=label_pat), proc_y=CategoryProcessor())
 # -
 
-c_in = ll.train[0][0].shape[0]
-c_out = len(uniqueify(ll.train.y))
-data = ll.to_databunch(bs, c_in=3, c_out=5)
+c_in = torchaudio.load('/media/hdd/Datasets/STAEDS/m0005_us_m0005_00418.wav')[0][0].shape[0]
 
-show_spec_batch = partial(show_batch_audio, c=4, r=2, figsize=None, 
-                          shower=partial(show_spectro, with_shape=False))
+c_out = len(uniqueify(ll.train.y));c_out
 
-x,y = next(iter(data.train_dl))
-show_spec_batch(x)
+data = ll.to_databunch(bs, c_in=3, c_out=c_out)
+
+# +
+# show_spec_batch = partial(show_batch_audio, c=4, r=2, figsize=None, 
+#                           shower=partial(show_spectro, with_shape=False))
+
+# +
+# x,y = next(iter(data.train_dl))
+# show_spec_batch(x)
+# -
 
 arch = partial(xresnet34, c_out =5)()
 

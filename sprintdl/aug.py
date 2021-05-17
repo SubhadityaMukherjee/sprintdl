@@ -50,7 +50,8 @@ class ATransform:
         self.t_list.append(ToTensorV2())
 
     def __call__(self, item):
-        return self.t_list(image=np.array(item))["image"]
+        tfs = A.Compose(self.t_list)(image=np.array(item))["image"]
+        return tfs
 
 
 class ResizeFixed(Transform):

@@ -15,3 +15,5 @@ __pycache__/*
 *.csv
 tags
 *.txt
+runs/
+demos/runs/*

@@ -1,8 +1,5 @@
 ## To Do
 
-- GPU transform
-- RandomResizedCrop
-- PerspectiveWarp
 - proper logger
 - Fix Mixup
 - read all the papers and write about the concepts
@@ -10,8 +7,6 @@
 - adamW
 - update features
 - more metrics support
-- albumentations
-- show batch shows random images
 - auto reduce batch size in multiple trainer
 
 ## Doing
