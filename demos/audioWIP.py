@@ -32,6 +32,8 @@ import torch
 import math
 # -
 
+import torchsnooper as tsp
+
 import torchaudio
 from torchaudio import transforms
 from IPython.display import Audio
@@ -110,8 +112,8 @@ class Spectrogrammer(Transform):
         else: 
             spec = transforms.Spectrogram(self.n_fft, self.ws, self.hop, self.pad, 
                                           normalize=self.normalize)(sig)
-        if self.to_db:
-            spec = transforms.SpectrogramToDB(top_db=self.top_db)(spec)
+#         if self.to_db:
+#             spec = transforms.SpectrogramToDB(top_db=self.top_db)(spec)
         spec = spec.permute(0,2,1) # reshape so it looks good to humans
         return spec
 
@@ -165,7 +167,8 @@ shifter = SignalShift()
 speccer = Spectrogrammer(n_fft=1024, n_mels=64, top_db=80)
 masker = SpecAugment(freq_masks=2, time_masks=2, max_mask_pct=0.1)
 
-tfms = [AudioCuda(), shifter, speccer, masker]
+# tfms = [AudioCuda(), shifter, speccer, masker]
+tfms = [ shifter, speccer, masker]
 bs = 256
 
 # +
@@ -202,19 +205,23 @@ c_out = len(uniqueify(ll.train.y));c_out
 
 data = ll.to_databunch(bs, c_in=3, c_out=c_out)
 
-# +
-# show_spec_batch = partial(show_batch_audio, c=4, r=2, figsize=None, 
-#                           shower=partial(show_spectro, with_shape=False))
+show_spec_batch = partial(show_batch_audio, c=4, r=2, figsize=None, 
+                          shower=partial(show_spectro, with_shape=False))
 
-# +
-# x,y = next(iter(data.train_dl))
-# show_spec_batch(x)
-# -
+assert len(data.train_ds.x.items) == len(data.train_ds.y.items)
+
+x,y = next(iter(data.train_dl))
+
+show_spec_batch(x)
 
 arch = partial(xresnet34, c_out =5)()
 
-learn = Learner(arch, data, loss_func, lr=lr, cb_funcs=cbfs, opt_func=opt_func)
+# +
 
+learn = Learner(arch, data, loss_func, lr=lr, cb_funcs=cbfs, opt_func=opt_func)
+# -
+
+# with tsp.snoop():
 learn.fit(1)
 
 
