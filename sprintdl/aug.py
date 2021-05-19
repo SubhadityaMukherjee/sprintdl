@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import PIL
 import torch
+import torchvision
 from albumentations.pytorch import ToTensorV2
 from torch import tensor
 from torch.distributions import Beta
@@ -17,6 +18,31 @@ from .helpers import lin_comb, listify, unsqueeze
 """
 This module takes care of the augumentations
 """
+
+
+def open_image(fpath, size, convert_to="", to_tensor=False, perm=()):
+    tem = PIL.Image.open(fpath).resize(size)
+    if len(convert_to) > 1:
+        tem = tem.convert(convert_to)
+    if to_tensor == True:
+        tem = pil_to_tensor(tem)
+    if len(perm) > 2:
+        tem = tem.permute(*perm)
+
+    return tem
+
+
+def predict_image(learn, size, fpath, convert_to="", perm=()):
+    tem = open_image(fpath, size, convert_to, to_tensor=True, perm=perm)
+    return learn.model(tem.unsqueeze(0).cuda())
+
+
+def pil_from_tensor(x):
+    return torchvision.transforms.functional.to_pil_image(x)
+
+
+def pil_to_tensor(x):
+    return torchvision.transforms.functional.to_tensor(x)
 
 
 class Transform:
@@ -249,30 +275,44 @@ class MixUp(Callback):
     def begin_fit(self):
         self.old_loss_func, self.run.loss_func = self.run.loss_func, self.loss_func
 
+    def mixup_data(self, x, y, alpha=1.0, use_cuda=True):
+        if alpha > 0:
+            lam = np.random.beta(alpha, alpha)
+        else:
+            lam = 1
+
+        batch_size = x.size()[0]
+        if use_cuda:
+            index = torch.randperm(batch_size).cuda()
+        else:
+            index = torch.randperm(batch_size)
+
+        mixed_x = lam * x + (1 - lam) * x[index, :]
+        y_a, y_b = y, y[index]
+        return mixed_x, y_a, y_b, lam
+
     def begin_batch(self):
         if not self.in_train:
             return
-        λ = self.distrib.sample((self.yb.size(0),)).squeeze().to(self.xb.device)
-        λ = torch.stack([λ, 1 - λ], 1)
-        self.λ = unsqueeze(λ.max(1)[0], (1, 2, 3))
-        shuffle = torch.randperm(self.yb.size(0)).to(self.xb.device)
-        xb1, self.yb1 = self.xb[shuffle], self.yb[shuffle]
-        self.run.xb = lin_comb(self.xb, xb1, self.λ)
+        self.xb, self.yb, self.yb1, self.λ = self.mixup_data(self.xb, self.yb)
 
     def after_fit(self):
         self.run.loss_func = self.old_loss_func
 
+    #  return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
     def loss_func(self, pred, yb):
+        #  return self.λ * self.old_loss_func(pred,self.y_a ) + (1-self.λ)*self.old_loss_func(pred, self.y_b)
         if not self.in_train:
             return self.old_loss_func(pred, yb)
         with NoneReduce(self.old_loss_func) as loss_func:
             loss1 = loss_func(pred, yb)
             loss2 = loss_func(pred, self.yb1)
+        print(loss1.shape, loss2.shape)
         loss = lin_comb(loss1, loss2, self.λ)
         return reduce_loss(loss, getattr(self.old_loss_func, "reduction", "mean"))
 
 
-_m = tensor([0.47, 0.48, 0.45])
-_s = tensor([0.29, 0.28, 0.30])
-norm_imagenette = partial(normalize_chan, mean=_m.cuda(), std=_s.cuda())
+#  _m = tensor([0.47, 0.48, 0.45])
+#  _s = tensor([0.29, 0.28, 0.30])
+#  norm_imagenette = partial(normalize_chan, mean=_m.cuda(), std=_s.cuda())
 Γ = lambda x: x.lgamma().exp()

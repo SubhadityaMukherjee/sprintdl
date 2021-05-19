@@ -5,6 +5,7 @@ from functools import partial
 
 import matplotlib.pyplot as plt
 import torch
+import torch.nn.utils.prune as prune
 from fastprogress.fastprogress import format_time, master_bar, progress_bar
 from torch import tensor
 from torch.utils.tensorboard import SummaryWriter
@@ -367,6 +368,7 @@ class LR_Find(Callback):
         lr = self.min_lr * (self.max_lr / self.min_lr) ** pos
         for pg in self.opt.hypers:
             pg["lr"] = lr
+            #  pg["best_loss"] = self.best_loss
 
     def after_step(self):
         if self.n_iter >= self.max_iter or self.loss > self.best_loss * 10:
@@ -500,6 +502,107 @@ class Hooks(ListContainer):
             h.remove()
 
 
+def measure_module_sparsity(module, weight=True, bias=False, use_mask=True):
+    """https://leimao.github.io/blog/PyTorch-Pruning/"""
+
+    num_zeros = 0
+    num_elements = 0
+
+    if use_mask == True:
+        for buffer_name, buffer in module.named_buffers():
+            if "weight_mask" in buffer_name and weight == True:
+                num_zeros += torch.sum(buffer == 0).item()
+                num_elements += buffer.nelement()
+            if "bias_mask" in buffer_name and bias == True:
+                num_zeros += torch.sum(buffer == 0).item()
+                num_elements += buffer.nelement()
+    else:
+        for param_name, param in module.named_parameters():
+            if "weight" in param_name and weight == True:
+                num_zeros += torch.sum(param == 0).item()
+                num_elements += param.nelement()
+            if "bias" in param_name and bias == True:
+                num_zeros += torch.sum(param == 0).item()
+                num_elements += param.nelement()
+
+    sparsity = num_zeros / num_elements
+
+    return num_zeros, num_elements, sparsity
+
+
+def measure_global_sparsity(
+    model, weight=True, bias=False, conv2d_use_mask=True, linear_use_mask=False
+):
+
+    num_zeros = 0
+    num_elements = 0
+
+    for module_name, module in model.named_modules():
+
+        if isinstance(module, torch.nn.Conv2d):
+
+            module_num_zeros, module_num_elements, _ = measure_module_sparsity(
+                module, weight=weight, bias=bias, use_mask=conv2d_use_mask
+            )
+            num_zeros += module_num_zeros
+            num_elements += module_num_elements
+
+        elif isinstance(module, torch.nn.Linear):
+
+            module_num_zeros, module_num_elements, _ = measure_module_sparsity(
+                module, weight=weight, bias=bias, use_mask=linear_use_mask
+            )
+            num_zeros += module_num_zeros
+            num_elements += module_num_elements
+
+    sparsity = num_zeros / num_elements
+
+    return num_zeros, num_elements, sparsity
+
+
+conv_names = (torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d)
+
+
+def pruner(
+    model, grouped_pruning=True, conv2d_prune_amount=0.4, linear_prune_amount=0.2
+):
+    if grouped_pruning == True:
+        # Global pruning
+        parameters_to_prune = []
+        for module_name, module in model.named_modules():
+            if any([isinstance(module, x) for x in conv_names]):
+                parameters_to_prune.append((module, "weight"))
+        print(f"Pruning: {len(parameters_to_prune)}")
+        prune.global_unstructured(
+            parameters_to_prune,
+            pruning_method=prune.L1Unstructured,
+            amount=conv2d_prune_amount,
+        )
+    else:
+        for module_name, module in model.named_modules():
+            if any([isinstance(module, x) for x in conv_names]):
+                prune.l1_unstructured(module, name="weight", amount=conv2d_prune_amount)
+            elif isinstance(module, torch.nn.Linear):
+                prune.l1_unstructured(module, name="weight", amount=linear_prune_amount)
+
+
+class PruningCallback(Callback):
+    def __init__(
+        self, grouped_pruning=True, conv2d_prune_amount=0.4, linear_prune_amount=0.2
+    ):
+        self.grouped_pruning = grouped_pruning
+        self.conv2d_prune_amount = conv2d_prune_amount
+        self.linear_prune_amount = linear_prune_amount
+
+    def begin_epoch(self):
+        pruner(
+            self.model,
+            self.grouped_pruning,
+            self.conv2d_prune_amount,
+            self.linear_prune_amount,
+        )
+
+
 class ProgressCallback(Callback):
     """
     Pretty progress bar using fastprogress
@@ -547,15 +650,16 @@ def sched_1cycle(lr, pct_start=0.3, mom_start=0.95, mom_mid=0.85, mom_end=0.95):
     return [ParamScheduler("lr", sched_lr), ParamScheduler("mom", sched_mom)]
 
 
-def lr_finder(learn, n_epochs):
+def lr_finder(learn, n_epochs, set_suggested=True):
     """
     Get suggested_lr and return
     """
     learn.cbs.append(LR_Find)
     learn.fit(n_epochs)
     suggested_lr = learn.opt.hypers[0]["lr"]
-    print(f"Best loss : {learn.lr__find.best_loss}\nSuggested lr : {suggested_lr}")
+    print(f"Suggested lr : {suggested_lr}")
     learn.cbs.remove(LR_Find)
-    learn.lr = suggested_lr
+    if set_suggested == True:
+        learn.lr = suggested_lr
     print(f"Set lr to suggested_lr")
     return suggested_lr

@@ -234,14 +234,6 @@ def lsuv_module(learn, m, xb):
     return h.mean, h.std
 
 
-def get_batch(dl, learn):
-    learn.xb, learn.yb = next(iter(dl))
-    learn.do_begin_fit(1)
-    learn("begin_batch")
-    learn("after_fit")
-    return learn.xb, learn.yb
-
-
 def model_summary(learn, find_all=False, print_mod=False):
     """
     List layers and their sizes
@@ -351,3 +343,77 @@ def get_vision_model(name, n_classes, pretrained=False):
         return getattr(m, name)(num_classes=n_classes, pretrained=pretrained)
     except:
         return getattr(m, name)(num_classes=n_classes)
+
+
+def param_state(x):
+    return x.requires_grad
+
+
+def total_layer_state(learn):
+    ps = [param_state(x) for x in learn.model.parameters()]
+    frozen = ps.count(False)
+    return f"Frozen: {frozen}, Not: {len(ps)-frozen}, Total: {len(ps)}"
+
+
+class FreezeUnfreeze:
+    def __init__(self, learn, switch, to=None):
+        self.model = learn.model
+        self.switch = switch  # 0 for freeze, 1 for unfreeze
+        self.ps = [None for x in learn.model.parameters()]
+        self.count = 0
+        self.to = to
+
+    def runner(self):
+        if self.to == None:
+            self.to = len(self.ps)
+        if self.to < 0:
+            self.to = len(self.ps) - abs(self.to)
+        for param in self.model.parameters():
+            if self.count < self.to:
+                param.requires_grad = False if self.switch == 0 else True
+                self.count += 1
+
+
+def freeze_to(learn, to=None):
+    FreezeUnfreeze(learn, 0, to).runner()
+
+
+def unfreeze_to(learn, to=None):
+    FreezeUnfreeze(learn, 1, to).runner()
+
+
+def children(m: nn.Module):
+    "Get children of `m`."
+    return list(m.children())
+
+
+def num_children(m: nn.Module) -> int:
+    "Get number of children modules in `m`."
+    return len(children(m))
+
+
+class ParameterModule(Module):
+    "Register a lone parameter `p` in a module."
+
+    def __init__(self, p: nn.Parameter):
+        self.val = p
+
+    def forward(self, x):
+        return x
+
+
+def children_and_parameters(m: nn.Module):
+    "Return the children of `m` and its direct parameters not registered in modules."
+    children = list(m.children())
+    children_p = sum([[id(p) for p in c.parameters()] for c in m.children()], [])
+    for p in m.parameters():
+        if id(p) not in children_p:
+            children.append(ParameterModule(p))
+    return children
+
+
+flatten_model = (
+    lambda m: sum(map(flatten_model, children_and_parameters(m)), [])
+    if num_children(m)
+    else [m]
+)

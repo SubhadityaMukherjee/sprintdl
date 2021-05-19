@@ -105,15 +105,12 @@ class ListContainer:
         return res
 
 
-def get_batch(dl):
+def get_batch(learn):
     """
     Grab one batch
     """
-    dl.xb, dl.yb = next(iter(dl))
-    for cb in dl.cbs:
-        cb.set_runner(dl)
-    dl("begin_batch")
-    return dl.xb, dl.yb
+    xb, yb = next(iter(learn.data.train.dl))
+    return xb, yb
 
 
 def find_modules(m, cond):

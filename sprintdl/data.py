@@ -426,23 +426,3 @@ def random_splitter(fn, p_valid):
     Randomly split
     """
     return random.random() < p_valid
-
-
-#  def progressive_resize(progressive_list, fpath, epochs, bs,tfms, arch, lr, cbfs, opt_func, loss_func, model_name = "m"):
-#
-#      for i in progressive_list:
-#          il = ImageList.from_files(fpath, tfms=tfms)
-#
-#          sd = SplitData.split_by_func(il, partial(random_splitter, p_valid = .2))
-#          ll = label_by_func(sd, lambda x: str(x).split("/")[-3], proc_y=CategoryProcessor())
-#
-#          data = ll.to_databunch(bs, c_in=3, c_out=2)
-#
-#          clear_memory()
-#
-#  # learn = get_learner(nfs, data, lr, conv_layer, cb_funcs=cbfs)
-#          learn = Learner(arch,  data, loss_func, lr=lr, cb_funcs=cbfs, opt_func=opt_func)
-#
-#          learn.fit(epochs)
-#
-#          save_model(learn, f"{model_name}_{i}", fpath)

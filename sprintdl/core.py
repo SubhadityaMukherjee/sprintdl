@@ -198,6 +198,9 @@ class Learner:
             res = cb(cb_name) and res
         return res
 
+    def predict(self, tens):
+        return self.model(tens.unsqueeze(0).cuda())
+
 
 def get_dls(train_ds, valid_ds, bs, num_workers=8, **kwargs):
     """
