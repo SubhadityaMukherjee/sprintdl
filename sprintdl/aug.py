@@ -271,52 +271,6 @@ def reduce_loss(loss, reduction="mean"):
     )
 
 
-class MixUp(Callback):
-    _order = 90
-
-    def __init__(self, α: float = 0.4):
-        self.distrib = Beta(tensor([α]), tensor([α]))
-
-    def begin_fit(self):
-        self.old_loss_func, self.run.loss_func = self.run.loss_func, self.loss_func
-
-    def mixup_data(self, x, y, alpha=1.0, use_cuda=True):
-        if alpha > 0:
-            lam = np.random.beta(alpha, alpha)
-        else:
-            lam = 1
-
-        batch_size = x.size()[0]
-        if use_cuda:
-            index = torch.randperm(batch_size).cuda()
-        else:
-            index = torch.randperm(batch_size)
-
-        mixed_x = lam * x + (1 - lam) * x[index, :]
-        y_a, y_b = y, y[index]
-        return mixed_x, y_a, y_b, lam
-
-    def begin_batch(self):
-        if not self.in_train:
-            return
-        self.xb, self.yb, self.yb1, self.λ = self.mixup_data(self.xb, self.yb)
-
-    def after_fit(self):
-        self.run.loss_func = self.old_loss_func
-
-    #  return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
-    def loss_func(self, pred, yb):
-        #  return self.λ * self.old_loss_func(pred,self.y_a ) + (1-self.λ)*self.old_loss_func(pred, self.y_b)
-        if not self.in_train:
-            return self.old_loss_func(pred, yb)
-        with NoneReduce(self.old_loss_func) as loss_func:
-            loss1 = loss_func(pred, yb)
-            loss2 = loss_func(pred, self.yb1)
-        print(loss1.shape, loss2.shape)
-        loss = lin_comb(loss1, loss2, self.λ)
-        return reduce_loss(loss, getattr(self.old_loss_func, "reduction", "mean"))
-
-
 #  _m = tensor([0.47, 0.48, 0.45])
 #  _s = tensor([0.29, 0.28, 0.30])
 #  norm_imagenette = partial(normalize_chan, mean=_m.cuda(), std=_s.cuda())
