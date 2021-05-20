@@ -19,7 +19,6 @@ from .helpers import *
 from .layers import save_model
 
 Path.ls = lambda x: list(x.iterdir())
-
 """
 This part contains the defintions for everything needed to work with data
 """

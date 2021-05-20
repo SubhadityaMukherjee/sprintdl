@@ -100,6 +100,7 @@ class Learner:
             lr,
             splitter,
         )
+        self.c = len(set(self.data.train_ds.y.items))
         self.in_train, self.logger, self.opt = False, print, None
         self.cbs = []
         self.add_cb(TrainEvalCallback())

@@ -15,5 +15,4 @@ from .tests import *
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-
 torch.Tensor.ndim = property(lambda x: len(x.shape))
