@@ -32,9 +32,14 @@ def open_image(fpath, size, convert_to="", to_tensor=False, perm=()):
     return tem
 
 
-def predict_image(learn, size, fpath, convert_to="", perm=()):
+def predict_image(learn, size, fpath, plot=True, convert_to="", perm=()):
     tem = open_image(fpath, size, convert_to, to_tensor=True, perm=perm)
-    return learn.model(tem.unsqueeze(0).cuda())
+    preds = learn.model(tem.unsqueeze(0).cuda())
+    if plot == True:
+        plt.axis("off")
+        plt.imshow(np.array(preds[0].permute(1, 2, 0).detach().cpu()))
+    else:
+        return preds
 
 
 def pil_from_tensor(x):

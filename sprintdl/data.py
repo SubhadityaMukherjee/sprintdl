@@ -211,6 +211,7 @@ class ItemList(ListContainer):
 
     def __init__(self, items, path=".", tfms=None):
         super().__init__(items)
+        super(SplitData).__init__()
         self.path, self.tfms = Path(path), tfms
 
     def __repr__(self):

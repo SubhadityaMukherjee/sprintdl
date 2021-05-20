@@ -165,17 +165,6 @@ def uniqueify(x, sort=False):
     return res
 
 
-def show_image(im, figsize=(3, 3)):
-    """
-    Show single image
-    """
-    import matplotlib.pyplot as plt
-
-    plt.figure(figsize=figsize)
-    plt.axis("off")
-    plt.imshow(im.permute(1, 2, 0))
-
-
 def timeit(method):
     """
     Helper to time a function

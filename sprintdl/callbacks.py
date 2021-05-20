@@ -20,6 +20,7 @@ def normalize_chan(x, mean, std):
     """
     For 3 channel images (general ones)
     """
+    x = x.cuda()
     return (x - mean[..., None, None]) / std[..., None, None]
 
 
@@ -396,6 +397,8 @@ class FP16(Callback):  # TODO
     """
     FP16
     """
+
+    _order = 4
 
     def __init__(self, device):
         self.device = device

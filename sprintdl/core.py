@@ -1,3 +1,8 @@
+import concurrent
+import os
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from types import SimpleNamespace
+
 import torch
 from torch import nn, optim
 from torch.functional import F
@@ -198,9 +203,6 @@ class Learner:
             res = cb(cb_name) and res
         return res
 
-    def predict(self, tens):
-        return self.model(tens.unsqueeze(0).cuda())
-
 
 def get_dls(train_ds, valid_ds, bs, num_workers=8, **kwargs):
     """
@@ -262,3 +264,37 @@ def count_parameters(learn, table=False):
         print(table)
     print(f"Total Trainable Params: {total_params}")
     return total_params
+
+
+def num_cpus() -> int:
+    "Get number of cpus"
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count()
+
+
+_default_cpus = min(16, num_cpus())
+defaults = SimpleNamespace(
+    cpus=_default_cpus, cmap="viridis", return_fig=False, silent=False
+)
+
+
+def parallel(func, arr: Collection, max_workers: int = None, leave=False):
+    "Call `func` on every element of `arr` in parallel using `max_workers`."
+    max_workers = ifnone(max_workers, defaults.cpus)
+    if max_workers < 2:
+        results = [
+            func(o, i)
+            for i, o in progress_bar(enumerate(arr), total=len(arr), leave=leave)
+        ]
+    else:
+        with ProcessPoolExecutor(max_workers=max_workers) as ex:
+            futures = [ex.submit(func, o, i) for i, o in enumerate(arr)]
+            results = []
+            for f in progress_bar(
+                concurrent.futures.as_completed(futures), total=len(arr), leave=leave
+            ):
+                results.append(f.result())
+    if any([o is not None for o in results]):
+        return results
