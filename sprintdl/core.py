@@ -1,9 +1,12 @@
 import concurrent
+import gc
+import inspect
 import os
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from types import SimpleNamespace
 
 import torch
+from prettytable import PrettyTable
 from torch import nn, optim
 from torch.functional import F
 
@@ -131,6 +134,7 @@ class Learner:
             self("after_loss")
             if not self.in_train:
                 return
+            self("begin_backward")
             self.loss.backward()
             self("after_backward")
             self.opt.step()
@@ -156,6 +160,35 @@ class Learner:
     def do_begin_epoch(self, epoch):
         self.epoch, self.dl = epoch, self.data.train_dl
         return self("begin_epoch")
+
+    def destroy(self):
+        "Free the Learner internals, leaving just an empty shell that consumes no memory"
+
+        class ZombieLearner(Learner):
+            msg = "this object has been destroyed"
+
+            def __getattr__(self, item):
+                print(ZombieLearner.msg)
+                return None
+
+            def destroyed(*args, **kwargs):
+                print(ZombieLearner.msg)
+
+        attrs = [k for k in self.__dict__.keys() if not k.startswith("__")]
+        for a in attrs:
+            delattr(self, a)
+        methods = [
+            k
+            for k in dir(self)
+            if not k.startswith("__") and inspect.isroutine(getattr(self, k))
+        ]
+        for m in methods:
+            setattr(self, m, ZombieLearner.destroyed)
+        self.__class__ = ZombieLearner
+        gc.collect()
+        print(
+            "this Learner object self-destroyed - it still exists, but no longer usable"
+        )
 
     def fit(self, epochs, cbs=None, reset_opt=False):
         self.add_cbs(cbs)
@@ -184,6 +217,7 @@ class Learner:
         "begin_batch",
         "after_pred",
         "after_loss",
+        "begin_backward",
         "after_backward",
         "after_step",
         "after_cancel_batch",
@@ -196,6 +230,9 @@ class Learner:
         "after_cancel_train",
         "after_fit",
     }
+
+    def reconstruct(self, t):
+        return Image(t.float().clamp(min=0, max=1))
 
     def __call__(self, cb_name):
         res = False

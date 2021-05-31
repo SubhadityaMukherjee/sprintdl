@@ -1,3 +1,5 @@
+import collections
+import json
 import mimetypes
 import os
 import random
@@ -8,12 +10,14 @@ import urllib
 from functools import partial
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import PIL
 import torch
 import torchvision.datasets as d
 import wget
 
+from .aug import pil_from_tensor
 from .core import Learner, get_dls
 from .helpers import *
 from .layers import save_model
@@ -182,7 +186,7 @@ def _get_files(p, fs, extensions=None):
     return res
 
 
-def get_files(path, extensions=None, recurse=False, include=None):
+def get_files(path, extensions=None, recurse=False, include=None, max=None):
     """
     List files
     """
@@ -197,10 +201,17 @@ def get_files(path, extensions=None, recurse=False, include=None):
             else:
                 d[:] = [o for o in d if not o.startswith(".")]
             res += _get_files(p, f, extensions)
-        return res
+        if max != None:
+            return res[:max]
+        else:
+            return res
     else:
         f = [o.name for o in os.scandir(path) if o.is_file()]
-        return _get_files(path, f, extensions)
+        res = _get_files(path, f, extensions)
+        if max != None:
+            return res[:max]
+        else:
+            return res
 
 
 class ItemList(ListContainer):
@@ -234,20 +245,62 @@ class ItemList(ListContainer):
         return self._get(res)
 
 
+def create_images_from_list(lis, fpath, fpath_func=None, fpath_prefix="im", ext="jpg"):
+    new_paths = {}
+    fpath = Path(fpath)
+    fpath.mkdir(exist_ok=True)
+    fis = listify(lis.keys())[0]
+
+    for ind, itms in enumerate(progress_bar(lis, total=len(lis))):
+        if fpath_func is not None:
+            imname = f"{fpath_func(fpath_prefix)}_{str(ind)}.{ext}"
+        else:
+            imname = f"{fpath_prefix}_{str(ind)}.{ext}"
+
+        if torch.is_tensor(fis):
+            pil_from_tensor(itms).save(fpath / imname)
+        elif isinstance(np.array, x):
+            Image.fromarray(itms).save(fpath / imname)
+
+        new_paths[fpath / imname] = lis[itms]
+        progress_bar.update_bar
+    return new_paths
+
+
 class ImageList(ItemList):
     """
     Only lists images
     """
 
     @classmethod
-    def from_files(cls, path, extensions=None, recurse=True, include=None, **kwargs):
+    def from_files(
+        cls, path, extensions=None, recurse=True, include=None, max=None, **kwargs
+    ):
         if extensions is None:
             extensions = image_extensions
         return cls(
-            get_files(path, extensions, recurse=recurse, include=include),
+            get_files(path, extensions, recurse=recurse, include=include, max=max),
             path,
             **kwargs,
         )
+
+    @classmethod
+    def from_xy(
+        cls,
+        x,
+        y,
+        fpath,
+        tfms=None,
+        fpath_func=None,
+        fpath_prefix="im",
+        ext="jpg",
+        **kwargs,
+    ):
+        dict_comb = dict(zip(x, y))
+        tm = create_images_from_list(dict_comb, fpath, fpath_func, fpath_prefix, ext)
+        dict_comb = None
+
+        return ImageList.from_files(fpath, tfms=tfms), tm
 
     def get(self, fn):
         return PIL.Image.open(fn)
@@ -426,3 +479,38 @@ def random_splitter(fn, p_valid):
     Randomly split
     """
     return random.random() < p_valid
+
+
+def get_annotations(fname, prefix=None):
+    annot_dict = json.load(open(fname))
+    id2images, id2bboxes, id2cats = (
+        {},
+        collections.defaultdict(list),
+        collections.defaultdict(list),
+    )
+    classes = {}
+    for o in annot_dict["categories"]:
+        classes[o["id"]] = o["name"]
+    for o in annot_dict["annotations"]:
+        bb = o["bbox"]
+        id2bboxes[o["image_id"]].append([bb[1], bb[0], bb[3] + bb[1], bb[2] + bb[0]])
+        id2cats[o["image_id"]].append(classes[o["category_id"]])
+    for o in annot_dict["images"]:
+        if o["id"] in id2bboxes:
+            id2images[o["id"]] = ifnone(prefix, "") + o["file_name"]
+    ids = list(id2images.keys())
+    return [id2images[k] for k in ids], [[id2bboxes[k], id2cats[k]] for k in ids]
+
+
+def dict_labeller(name, dic):
+    return dic[name]
+
+
+def quick_data(fpath, tfms, splitter, label_func, bs=64, c_in=3, c_out=None, max=None):
+    il = ImageList.from_files(fpath, tfms=tfms, max=max)
+    print(f"total items: {len(il)}")
+    sd = SplitData.split_by_func(il, splitter)
+    ll = label_by_func(sd, label_func, proc_y=CategoryProcessor())
+    n_classes = len(set(ll.train.y.items))
+    print(f"n class : {n_classes}")
+    return ll.to_databunch(bs, c_in=c_in, c_out=n_classes if c_out != None else c_out)

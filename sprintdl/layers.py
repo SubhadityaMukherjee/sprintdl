@@ -189,6 +189,23 @@ class PixelShuffleICNR(nn.Module):
 # Helper functions
 
 
+def relu(inplace: bool = False, leaky: float = None):
+    return (
+        nn.LeakyReLU(inplace=inplace, negative_slope=leaky)
+        if leaky is not None
+        else nn.ReLU(inplace=inplace)
+    )
+
+
+def batchnorm_2d(nf, norm_type):
+    "A batchnorm2d layer with `nf` features initialized depending on `norm_type`."
+    bn = nn.BatchNorm2d(nf)
+    with torch.no_grad():
+        bn.bias.fill_(1e-3)
+        bn.weight.fill_(0.0 if norm_type == NormType.BatchZero else 1.0)
+    return bn
+
+
 def ifnone(a, b):
     return b if a is None else a
 
@@ -601,3 +618,31 @@ def lsuv_module(learn, m, xb):
         m.weight.data /= h.std
     h.remove()
     return h.mean, h.std
+
+
+class SequentialEx(nn.Module):
+    "Like `nn.Sequential`, but with ModuleList semantics, and can access module input"
+
+    def __init__(self, *layers):
+        self.layers = nn.ModuleList(layers)
+
+    def forward(self, x):
+        res = x
+        for l in self.layers:
+            res.orig = x
+            nres = l(res)
+            res.orig = None
+            res = nres
+        return res
+
+    def __getitem__(self, i):
+        return self.layers[i]
+
+    def append(self, l):
+        return self.layers.append(l)
+
+    def extend(self, l):
+        return self.layers.extend(l)
+
+    def insert(self, i, l):
+        return self.layers.insert(i, l)

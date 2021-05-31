@@ -9,12 +9,13 @@ import torch
 import torch.nn.utils.prune as prune
 from fastprogress.fastprogress import format_time, master_bar, progress_bar
 from torch import tensor
+from torch.cuda.amp import GradScaler, autocast
+from torch.cuda.amp.grad_scaler import OptState
 from torch.utils.data.sampler import WeightedRandomSampler
 from torch.utils.tensorboard import SummaryWriter
 
 from .helpers import *
 
-scaler = torch.cuda.amp.GradScaler()
 writer = SummaryWriter()
 
 
@@ -93,11 +94,19 @@ class TrainEvalCallback(Callback):
 
     def begin_epoch(self):
         self.run.n_epochs = self.epoch
-        self.model.train()
+        try:
+            self.model.train()
+        except:
+            self.model_D.train()
+            self.model_G.train()
         self.run.in_train = True
 
     def begin_validate(self):
-        self.model.eval()
+        try:
+            self.model.eval()
+        except:
+            self.model_D.train()
+            self.model_G.train()
         self.run.in_train = False
 
 
@@ -242,13 +251,20 @@ class Recorder(Callback):
     """
 
     def begin_fit(self):
-        self.lrs, self.losses = [0 for _ in self.opt.param_groups], []
+        self.lrs, self.losses, self.nb_batches = (
+            [0 for _ in self.opt.param_groups],
+            [],
+            [],
+        )
 
     def after_batch(self):
         if not self.in_train:
             return
         self.lrs.append(self.opt.hypers[-1]["lr"])
         self.losses.append(self.loss.detach().cpu())
+
+    def after_epoch(self):
+        self.nb_batches.append(self.epoch)
 
     def plot_lr(self):
         plt.plot(self.lrs)
@@ -357,10 +373,10 @@ def combine_scheds(pcts, scheds):
 
 class LR_Find(Callback):
     """
-    Find Learning rate. (WIP)
+    Find Learning rate.
     """
 
-    def __init__(self, max_iter=100, min_lr=1e-6, max_lr=10):
+    def __init__(self, max_iter=100, min_lr=1e-7, max_lr=10):
         self.max_iter, self.min_lr, self.max_lr = max_iter, min_lr, max_lr
         self.best_loss = 1e9
 
@@ -371,10 +387,10 @@ class LR_Find(Callback):
         lr = self.min_lr * (self.max_lr / self.min_lr) ** pos
         for pg in self.opt.hypers:
             pg["lr"] = lr
-            #  pg["best_loss"] = self.best_loss
 
     def after_step(self):
         if self.n_iter >= self.max_iter or self.loss > self.best_loss * 10:
+            print(f"Best loss: {self.best_loss}")
             raise CancelTrainException()
         if self.loss < self.best_loss:
             self.best_loss = self.loss
@@ -389,7 +405,11 @@ class CudaCallback(Callback):
         self.device = device
 
     def begin_fit(self):
-        self.model.to(self.device)
+        try:
+            self.model.to(self.device)
+        except:
+            self.model_D.to(self.device)
+            self.model_G.to(self.device)
 
     def begin_batch(self):
         self.run.xb, self.run.yb = self.xb.to(self.device), self.yb.to(self.device)
@@ -816,3 +836,45 @@ class UnderSampling(Callback):
     def on_train_end(self, **kwargs):
         "Reset dataloader to its original state"
         self.data.train_dl = self.old_dl
+
+
+class StopAfterNBatches(Callback):
+    def __init__(self, n_batches=2):
+        self.stop, self.n_batches = False, n_batches - 1
+
+    def on_batch_end(self, iteration, **kwargs):
+        if iteration == self.n_batches:
+            return {"stop_epoch": True, "stop_training": True, "skip_validate": True}
+
+
+bn_types = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
+
+#  def set_bn_eval(m:nn.Module, use_eval=False)->None:
+#      "Set bn layers in eval mode for all recursive children of `m`."
+#      for l in m.children():
+#          if isinstance(l, bn_types) and not next(l.parameters()).requires_grad:
+#              if use_eval: l.eval()
+#              else:        l.requires_grad = False
+#          set_bn_eval(l)
+#
+#  def set_eval_except_bn(m:nn.Module, use_eval=False)->None:
+#      "Set bn layers in eval mode for all recursive children of `m`."
+#      for l in m.children():
+#          if not isinstance(l, bn_types) and not next(l.parameters()).requires_grad:
+#              if use_eval: l.eval()
+#              else:        l.requires_grad = False
+#          set_eval_except_bn(l)
+#
+#
+#  class BnFreeze(Callback):
+#      run_after=TrainEvalCallback
+#      "Freeze moving average statistics in all non-trainable batchnorm layers."
+#      def before_train(self):
+#          set_bn_eval(self.model)
+#
+#  class FreezeNotBn(Callback):
+#      run_after=TrainEvalCallback
+#      "Freeze moving average statistics in all non-trainable batchnorm layers."
+#      def before_train(self):
+#          set_eval_except_bn(self.model)
+#

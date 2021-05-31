@@ -1,18 +1,45 @@
+import inspect
+import os
+import random
 from collections import OrderedDict
 from pathlib import Path
 from typing import *
 
+import hiddenlayer as hl
+import numpy as np
 import torch
 from fastprogress.fastprogress import progress_bar
 from PIL import Image
-from prettytable import PrettyTable
 from torch import nn
 from torch.autograd import Variable
 from torchvision import transforms
 
+#  def normalize(x, m, s):
+#      return (x - m) / s
 
-def normalize(x, m, s):
-    return (x - m) / s
+
+def get_modules_in_lib(mod):
+    cl = [m[0] for m in inspect.getmembers(mod, inspect.isclass)]
+    fn = [m[0] for m in inspect.getmembers(mod, inspect.isfunction)]
+    return cl, fn
+
+
+def normalize(x, mean, std):
+    "Normalize `x` with `mean` and `std`."
+    return (x - mean[..., None, None]) / std[..., None, None]
+
+
+def denormalize(x, mean, std, do_x: bool = True):
+    "Denormalize `x` with `mean` and `std`."
+    return (
+        x.cpu().float() * std[..., None, None] + mean[..., None, None]
+        if do_x
+        else x.cpu()
+    )
+
+
+def channel_view(x):
+    return x.transpose(0, 1).contiguous().view(x.shape[1], -1)
 
 
 def listify(o):
@@ -260,3 +287,23 @@ def classification_report(learn, n_classes, device):
                 confusion_matrix[t.long(), p.long()] += 1
     print(confusion_matrix.diag() / confusion_matrix.sum(1))
     print(confusion_matrix)
+
+
+def ifnone(a: Any, b: Any) -> Any:
+    "`a` if `a` is not None, otherwise `b`."
+    return b if a is None else a
+
+
+def visualize_model(model, inp_size=[1, 3, 64, 64], device="cuda:0"):
+    return hl.build_graph(model, torch.zeros(inp_size).to(device))
+
+
+def seed_everything(seed=42):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False

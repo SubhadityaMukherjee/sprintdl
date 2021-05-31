@@ -42,6 +42,10 @@
 <dd>
 <div class="desc"></div>
 </dd>
+<dt><code class="name"><a title="sprintdl.gans" href="gans/index.html">sprintdl.gans</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt><code class="name"><a title="sprintdl.helpers" href="helpers.html">sprintdl.helpers</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -91,6 +95,7 @@
 <li><code><a title="sprintdl.callbacks" href="callbacks.html">sprintdl.callbacks</a></code></li>
 <li><code><a title="sprintdl.core" href="core.html">sprintdl.core</a></code></li>
 <li><code><a title="sprintdl.data" href="data.html">sprintdl.data</a></code></li>
+<li><code><a title="sprintdl.gans" href="gans/index.html">sprintdl.gans</a></code></li>
 <li><code><a title="sprintdl.helpers" href="helpers.html">sprintdl.helpers</a></code></li>
 <li><code><a title="sprintdl.layers" href="layers.html">sprintdl.layers</a></code></li>
 <li><code><a title="sprintdl.loss" href="loss.html">sprintdl.loss</a></code></li>

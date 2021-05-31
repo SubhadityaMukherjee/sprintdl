@@ -25,6 +25,7 @@ class LabelSmoothingCrossEntropy(nn.Module):
         self.ε, self.reduction = ε, reduction
 
     def forward(self, output, target):
+        target = target.to(torch.long)
         c = output.size()[-1]
         log_preds = F.log_softmax(output, dim=-1)
         loss = reduce_loss(-log_preds.sum(dim=-1), self.reduction)
