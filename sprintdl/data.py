@@ -514,3 +514,72 @@ def quick_data(fpath, tfms, splitter, label_func, bs=64, c_in=3, c_out=None, max
     n_classes = len(set(ll.train.y.items))
     print(f"n class : {n_classes}")
     return ll.to_databunch(bs, c_in=c_in, c_out=n_classes if c_out != None else c_out)
+
+
+def from_another_folder(fol1, fol2, name, replace_fun=None, replace_ext=""):
+    fol1, fol2, name = Path(fol1), Path(fol2), Path(name)
+    old_ext = name.suffix
+    if replace_fun != None:
+        name = replace_fun(name.stem) + name.suffix
+    base_n = fol2 / name
+    if len(replace_ext) > 1:
+        base_n = base_n.with_suffix(replace_ext)
+    return base_n
+
+
+class DoubleDataset(Dataset):
+    def __init__(self, image_dir, mask_dir, label_func=lambda x: x, transform=None):
+        self.image_dir = Path(image_dir)
+        self.mask_dir = Path(mask_dir)
+        self.transform = transform
+        self.items = Path.ls(image_dir)
+        self.path = image_dir
+        self.label_func = label_func
+
+    def __len__(self):
+        return len(self.items)
+
+    def __getitem__(self, index):
+        img_path = self.image_dir / self.items[index]
+        mask_path = self.label_func(img_path)
+        image = Image.open(img_path)
+        mask = Image.open(mask_path)
+
+        image = compose(image, self.transform[0])
+        mask = compose(mask, self.transform[1])
+        return image, mask
+
+
+def double_data(
+    fpath_ims,
+    fpath_mask,
+    label_func=lambda x: x,
+    c_in=3,
+    c_out=3,
+    bs=64,
+    num_workers=8,
+    pct_split=0.2,
+    transform_im=None,
+    transform_ma=None,
+    pin_memory=True,
+):
+    il = DoubleDataset(fpath_ims, fpath_mask, transform=[transform_im, transform_ma])
+    tot = len(il)
+    split = int(pct_split * tot)
+    train_ds, val_ds = torch.utils.data.random_split(il, (split, tot - split))
+
+    train_loader = torch.utils.data.DataLoader(
+        train_ds.dataset,
+        batch_size=bs,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        shuffle=True,
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_ds.dataset,
+        batch_size=bs,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        shuffle=False,
+    )
+    return DataBunch(train_loader, val_loader, c_in=c_in, c_out=c_out)

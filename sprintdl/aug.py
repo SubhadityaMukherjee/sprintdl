@@ -32,8 +32,10 @@ def open_image(fpath, size, convert_to="", to_tensor=False, perm=()):
     return tem
 
 
-def predict_image(learn, size, fpath, plot=True, convert_to="", perm=()):
+def predict_image(learn, size, fpath, plot=True, convert_to="", perm=(), norm=None):
     tem = open_image(fpath, size, convert_to, to_tensor=True, perm=perm)
+    if norm != None:
+        tem = norm(tem)
     preds = learn.model(tem.unsqueeze(0).cuda())
     if plot == True:
         plt.axis("off")

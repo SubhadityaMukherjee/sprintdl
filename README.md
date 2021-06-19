@@ -1,5 +1,12 @@
 # SprintDL
 
+# Depreciation Warning
+- This library will not be developed. All new development is at [Lightning AddOns](https://github.com/SubhadityaMukherjee/lightningAddOns)
+- Does it work? YES. Everything here works. It was a learning exercise and well, now its time to go on to frameworks with more than 1 dev (oops). 
+- If anyone wants to learn how these Pytorch wrappers work, go ahead and look at this. I will of course take any questions you have. 
+- Drop me an email :) :  msubhaditya@gmail.com
+
+# Intro
 - A convenience wrapper over Pytorch
 - Faster research and experimentation
 - Based on [fastai](https://github.com/fastai)

@@ -295,10 +295,16 @@ def ifnone(a: Any, b: Any) -> Any:
 
 
 def visualize_model(model, inp_size=[1, 3, 64, 64], device="cuda:0"):
+    """
+    Use hiddenlayer to visualize a model
+    """
     return hl.build_graph(model, torch.zeros(inp_size).to(device))
 
 
 def seed_everything(seed=42):
+    """
+    Seed everything with a number
+    """
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)

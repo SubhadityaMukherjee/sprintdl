@@ -103,7 +103,7 @@ class Learner:
             lr,
             splitter,
         )
-        self.c = len(set(self.data.train_ds.y.items))
+        #  self.c = len(set(self.data.train_ds.y.items))
         self.in_train, self.logger, self.opt = False, print, None
         self.cbs = []
         self.add_cb(TrainEvalCallback())
@@ -256,7 +256,7 @@ def get_dls(train_ds, valid_ds, bs, num_workers=8, **kwargs):
     )
 
 
-def run_with_act_vis(epochs, learn):
+def run_with_act_vis(epochs, learn, n_hooks=4):
     """
     Run learner fit while storing model visualization such as histogram of activations
     """
@@ -273,14 +273,14 @@ def run_with_act_vis(epochs, learn):
         plt.suptitle("Activation vis for layers")
 
         fig, axes = plt.subplots(2, 2, figsize=(15, 6))
-        for ax, h in zip(axes.flatten(), hooks[:4]):
+        for ax, h in zip(axes.flatten(), hooks[:n_hooks]):
             ax.imshow(get_hist(h), origin="lower")
             ax.axis("off")
         plt.tight_layout()
         plt.suptitle("Histograms of activations for layers")
 
         fig, axes = plt.subplots(2, 2, figsize=(15, 6))
-        for ax, h in zip(axes.flatten(), hooks[:4]):
+        for ax, h in zip(axes.flatten(), hooks[:n_hooks]):
             ax.plot(get_min(h))
             ax.set_ylim(0, 1)
         plt.tight_layout()

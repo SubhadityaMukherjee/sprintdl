@@ -19,18 +19,21 @@
 # %matplotlib inline
 
 import os
-os.environ['TORCH_HOME'] = "/media/hdd/Datasets/"
+
+os.environ["TORCH_HOME"] = "/media/hdd/Datasets/"
 import sys
+
 sys.path.append("/media/hdd/github/sprintdl/")
 # -
 
-from sprintdl.main import *
 import sprintdl
+from sprintdl.main import *
 
-device = torch.device('cuda',0)
-from torch.nn import init
-import torch
+device = torch.device("cuda", 0)
 import math
+
+import torch
+from torch.nn import init
 
 from sprintdl.models.xresnet import *
 
@@ -43,55 +46,65 @@ fpath = Path("/media/hdd/Datasets/DenseHaze/")
 
 # tfms = [ATransform(train_transform, c_in = 3)]
 image_size = 128
-tfms = [make_rgb,to_byte_tensor,to_float_tensor, ResizeFixed(image_size)]
+tfms = [make_rgb, to_byte_tensor, to_float_tensor, ResizeFixed(image_size)]
 bs = 64
 # -
 
-fpath_mask = fpath/"train"
-fpath_ims = fpath/"masks"
+fpath_mask = fpath / "train"
+fpath_ims = fpath / "masks"
 
 # # Actual process
 
 il = ImageList.from_files(fpath_ims, tfms=tfms)
 
-sd = SplitData.split_by_func(il, partial(random_splitter, p_valid = .2))
+sd = SplitData.split_by_func(il, partial(random_splitter, p_valid=0.2))
 
 
-def return_mask(fpath_ims, fpath_mask,name):
-    return open_image(from_another_folder(fpath_ims, fpath_mask,name),size = (image_size,image_size), convert_to="RGB",to_tensor=True)
+def return_mask(fpath_ims, fpath_mask, name):
+    return open_image(
+        from_another_folder(fpath_ims, fpath_mask, name),
+        size=(image_size, image_size),
+        convert_to="RGB",
+        to_tensor=True,
+    )
 
 
 ll = label_by_func(sd, lambda x: return_mask(fpath_ims, fpath_mask, x))
 
 # +
-n_classes = len(set(ll.train.y.items));n_classes
+n_classes = len(set(ll.train.y.items))
+n_classes
 
 data = ll.to_databunch(bs, c_in=3, c_out=n_classes)
 # -
 
-show_batch(data,4)
+show_batch(data, 4)
 
 # # Training
 
 # +
-lr = .001
+lr = 0.001
 pct_start = 0.3
 phases = create_phases(pct_start)
-sched_lr  = combine_scheds(phases, cos_1cycle_anneal(lr/10., lr, lr/1e5))
+sched_lr = combine_scheds(phases, cos_1cycle_anneal(lr / 10.0, lr, lr / 1e5))
 sched_mom = combine_scheds(phases, cos_1cycle_anneal(0.95, 0.85, 0.95))
 
 # def loss_funct(input, target):
 # #     print(input.shape, target.shape)
-#     return nn.BCEWithLogitsLoss()(input, target) 
-def dice_loss(pred, target, smooth = 1.):
+#     return nn.BCEWithLogitsLoss()(input, target)
+def dice_loss(pred, target, smooth=1.0):
     pred = pred.contiguous()
-    target = target.contiguous()    
+    target = target.contiguous()
 
     intersection = (pred * target).sum(dim=2).sum(dim=2)
-    
-    loss = (1 - ((2. * intersection + smooth) / (pred.sum(dim=2).sum(dim=2) + target.sum(dim=2).sum(dim=2) + smooth)))
-    
+
+    loss = 1 - (
+        (2.0 * intersection + smooth)
+        / (pred.sum(dim=2).sum(dim=2) + target.sum(dim=2).sum(dim=2) + smooth)
+    )
+
     return loss.mean()
+
 
 def loss_funct(pred, target, bce_weight=0.5):
     bce = F.binary_cross_entropy_with_logits(pred, target)
@@ -102,20 +115,20 @@ def loss_funct(pred, target, bce_weight=0.5):
     loss = bce * bce_weight + dice * (1 - bce_weight)
     return loss
 
+
 cbfs = [
-    partial(AvgStatsCallback,loss_funct),
-    partial(ParamScheduler, 'lr', sched_lr),
-    partial(ParamScheduler, 'mom', sched_mom),
-        partial(BatchTransformXCallback, norm_imagenette),
+    partial(AvgStatsCallback, loss_funct),
+    partial(ParamScheduler, "lr", sched_lr),
+    partial(ParamScheduler, "mom", sched_mom),
+    partial(BatchTransformXCallback, norm_imagenette),
     ProgressCallback,
     Recorder,
-#     MixUp,
-       partial(CudaCallback, device)]
+    #     MixUp,
+    partial(CudaCallback, device),
+]
 
 
-
-
-loss_func=loss_funct
+loss_func = loss_funct
 opt_func = adam_opt(mom=0.9, mom_sqr=0.99, eps=1e-6, wd=1e-2)
 
 
@@ -125,6 +138,7 @@ def conv_layer(in_channels, out_channels, kernel, padding):
         nn.Conv2d(in_channels, out_channels, kernel, padding=padding),
         nn.ReLU(inplace=True),
     )
+
 
 class UNet(nn.Module):
     def __init__(self, n_class):
@@ -148,17 +162,16 @@ class UNet(nn.Module):
         self.layer4 = self.base_layers[7]
         self.layer4_1x1 = conv_layer(512, 512, 1, 0)
 
-        self.upsample = nn.Upsample(
-            scale_factor=2, mode='bilinear', align_corners=True)
+        self.upsample = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
 
-        self.conv_up3 = conv_layer(256+512, 512, 3, 1)
-        self.conv_up2 = conv_layer(128+512, 256, 3, 1)
-        self.conv_up1 = conv_layer(64+256, 256, 3, 1)
-        self.conv_up0 = conv_layer(64+256, 128, 3, 1)
+        self.conv_up3 = conv_layer(256 + 512, 512, 3, 1)
+        self.conv_up2 = conv_layer(128 + 512, 256, 3, 1)
+        self.conv_up1 = conv_layer(64 + 256, 256, 3, 1)
+        self.conv_up0 = conv_layer(64 + 256, 128, 3, 1)
 
         self.conv_original_size0 = conv_layer(3, 64, 3, 1)
         self.conv_original_size1 = conv_layer(64, 64, 3, 1)
-        self.conv_original_size2 = conv_layer(64+128, 64, 3, 1)
+        self.conv_original_size2 = conv_layer(64 + 128, 64, 3, 1)
 
         self.conv_last = nn.Conv2d(64, n_class, 1)
 
@@ -198,11 +211,10 @@ class UNet(nn.Module):
         x = self.conv_original_size2(x)
 
         out = self.conv_last(x)
-#         print(out.shape)
-#         out = out.permute(0, 3, 2, 1)
+        #         print(out.shape)
+        #         out = out.permute(0, 3, 2, 1)
 
         return out
-
 
 
 # -
@@ -215,24 +227,19 @@ clear_memory()
 
 learn.fit(20)
 
-open_image("/media/hdd/ART/refs/beings/dragons/707acb9c40491226f69b48010cb7646b.png",(128,128))
+open_image(
+    "/media/hdd/ART/refs/beings/dragons/707acb9c40491226f69b48010cb7646b.png",
+    (128, 128),
+)
 
-predict_image(learn, (128,128), "/media/hdd/ART/refs/beings/dragons/707acb9c40491226f69b48010cb7646b.png", convert_to="RGB",plot = True)
+predict_image(
+    learn,
+    (128, 128),
+    "/media/hdd/ART/refs/beings/dragons/707acb9c40491226f69b48010cb7646b.png",
+    convert_to="RGB",
+    plot=True,
+)
 
 learn.recorder.plot_loss()
 
 learn.recorder.plot_lr()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
